@@ -7,6 +7,8 @@ import React from 'react';
 import { t, useLanguage } from '@/intl/client';
 import { tcls } from '@/lib/tailwind';
 
+import { CustomizationAIMode } from '@gitbook/api';
+import { assert } from 'ts-essentials';
 import { useTrackEvent } from '../Insights';
 import { Loading } from '../primitives';
 import { SearchPageResultItem } from './SearchPageResultItem';
@@ -32,28 +34,29 @@ type ResultType =
 
 /**
  * We cache the recommended questions globally to avoid calling the API multiple times
- * when re-opening the search modal.
+ * when re-opening the search modal. The cache is per space, so that we can
+ * have different recommended questions for different spaces of the same site.
+ * It should not be used outside of an useEffect.
  */
-let cachedRecommendedQuestions: null | ResultType[] = null;
+const cachedRecommendedQuestions: Map<string, ResultType[]> = new Map();
 
 /**
  * Fetch the results of the keyboard navigable elements to display for a query:
  *   - Recommended questions if no query is provided.
  *   - Search results if a query is provided.
- *      - If withAsk is true, add a question result.
+ *      - If withAI is true, add a question result.
  */
 export const SearchResults = React.forwardRef(function SearchResults(
     props: {
         children?: React.ReactNode;
         query: string;
         global: boolean;
-        withAsk: boolean;
-        withAIChat: boolean;
-        onSwitchToAsk: () => void;
+        aiMode: CustomizationAIMode;
+        siteSpaceId: string;
     },
     ref: React.Ref<SearchResultsRef>
 ) {
-    const { children, query, withAsk, withAIChat, global, onSwitchToAsk } = props;
+    const { children, query, aiMode, global, siteSpaceId } = props;
 
     const language = useLanguage();
     const trackEvent = useTrackEvent();
@@ -64,22 +67,29 @@ export const SearchResults = React.forwardRef(function SearchResults(
     const [cursor, setCursor] = React.useState<number | null>(null);
     const refs = React.useRef<(null | HTMLAnchorElement)[]>([]);
 
+    const withAI =
+        aiMode === CustomizationAIMode.Search || aiMode === CustomizationAIMode.Assistant;
+
     React.useEffect(() => {
         if (!query) {
-            if (!withAsk) {
+            if (!withAI) {
                 setResultsState({ results: [], fetching: false });
                 return;
             }
 
-            if (cachedRecommendedQuestions) {
-                setResultsState({ results: cachedRecommendedQuestions, fetching: false });
+            if (cachedRecommendedQuestions.has(siteSpaceId)) {
+                const results = cachedRecommendedQuestions.get(siteSpaceId);
+                assert(
+                    results,
+                    `Cached recommended questions should be set for site-space ${siteSpaceId}`
+                );
+                setResultsState({ results, fetching: false });
                 return;
             }
 
-            let cancelled = false;
-
-            // Silently fetch the recommended questions, instead of showing a spinner
             setResultsState({ results: [], fetching: false });
+
+            let cancelled = false;
 
             // We currently have a bug where the same question can be returned multiple times.
             // This is a workaround to avoid that.
@@ -91,7 +101,7 @@ export const SearchResults = React.forwardRef(function SearchResults(
                     return;
                 }
 
-                const response = await streamRecommendedQuestions();
+                const response = await streamRecommendedQuestions({ siteSpaceId });
                 for await (const entry of readStreamableValue(response.stream)) {
                     if (!entry) {
                         continue;
@@ -108,7 +118,7 @@ export const SearchResults = React.forwardRef(function SearchResults(
                         id: question,
                         question,
                     });
-                    cachedRecommendedQuestions = recommendedQuestions;
+                    cachedRecommendedQuestions.set(siteSpaceId, recommendedQuestions);
 
                     if (!cancelled) {
                         setResultsState({ results: [...recommendedQuestions], fetching: false });
@@ -149,14 +159,14 @@ export const SearchResults = React.forwardRef(function SearchResults(
             cancelled = true;
             clearTimeout(timeout);
         };
-    }, [query, global, withAsk, trackEvent]);
+    }, [query, global, withAI, trackEvent]);
 
     const results: ResultType[] = React.useMemo(() => {
-        if (!withAsk) {
+        if (!withAI) {
             return resultsState.results;
         }
         return withQuestionResult(resultsState.results, query);
-    }, [resultsState.results, query, withAsk]);
+    }, [resultsState.results, query, withAI]);
 
     React.useEffect(() => {
         if (!query) {
@@ -217,28 +227,39 @@ export const SearchResults = React.forwardRef(function SearchResults(
 
     if (resultsState.fetching) {
         return (
-            <div className={tcls('flex', 'items-center', 'justify-center', 'py-8')}>
-                <Loading className={tcls('w-6', 'text-primary')} />
+            <div className={tcls('flex', 'items-center', 'justify-center', 'py-8', 'h-full')}>
+                <Loading className={tcls('w-6', 'text-tint/6')} />
             </div>
         );
     }
 
     const noResults = (
-        <div className={tcls('text', 'text-tint', 'p-8', 'text-center')}>
+        <div
+            className={tcls(
+                'flex',
+                'items-center',
+                'justify-center',
+                'text-center',
+                'py-8',
+                'h-full'
+            )}
+        >
             {t(language, 'search_no_results_for', query)}
         </div>
     );
 
     return (
-        <div className={tcls('overflow-auto')}>
+        <div className={tcls('min-h-full')}>
             {children}
             {results.length === 0 ? (
                 query ? (
                     noResults
-                ) : null
+                ) : (
+                    <div className="empty" />
+                )
             ) : (
                 <>
-                    <div data-testid="search-results">
+                    <div data-testid="search-results" className="flex flex-col gap-y-1">
                         {results.map((item, index) => {
                             switch (item.type) {
                                 case 'page': {
@@ -260,11 +281,10 @@ export const SearchResults = React.forwardRef(function SearchResults(
                                             ref={(ref) => {
                                                 refs.current[index] = ref;
                                             }}
-                                            withAIChat={withAIChat}
+                                            withAIChat={aiMode === CustomizationAIMode.Assistant}
                                             key={item.id}
                                             question={query}
                                             active={index === cursor}
-                                            onClick={onSwitchToAsk}
                                         />
                                     );
                                 }
@@ -275,10 +295,9 @@ export const SearchResults = React.forwardRef(function SearchResults(
                                                 refs.current[index] = ref;
                                             }}
                                             key={item.id}
-                                            withAIChat={withAIChat}
+                                            withAIChat={aiMode === CustomizationAIMode.Assistant}
                                             question={item.question}
                                             active={index === cursor}
-                                            onClick={onSwitchToAsk}
                                             recommended
                                         />
                                     );

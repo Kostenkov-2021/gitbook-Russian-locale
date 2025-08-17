@@ -34,7 +34,7 @@ export async function PageFooterNavigation(props: {
                 'mt-6',
                 'gap-2',
                 'max-w-3xl',
-                'page-full-width:max-w-screen-2xl',
+                'page-width-wide:max-w-screen-2xl',
                 'mx-auto',
                 'text-tint'
             )}
@@ -108,7 +108,7 @@ function NavigationCard(
                 reversed ? 'pl-4' : null,
                 'border',
                 'border-tint-subtle',
-                'rounded',
+                'rounded-sm',
                 'circular-corners:rounded-2xl',
                 'straight-corners:rounded-none',
                 'hover:border-primary',

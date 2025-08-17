@@ -28,4 +28,5 @@ export const languages: {
     nl,
     no,
     'pt-br': pt_br,
+    ru,
 };

@@ -1,13 +1,8 @@
 import type { GitBookSiteContext } from '@/lib/context';
-import { Suspense } from 'react';
 
 import { CONTAINER_STYLE, HEADER_HEIGHT_DESKTOP } from '@/components/layout';
 import { getSpaceLanguage, t } from '@/intl/server';
 import { tcls } from '@/lib/tailwind';
-
-import { CustomizationAIMode } from '@gitbook/api';
-import { AIChatButton } from '../AIChat/AIChatButton';
-import { SearchButton } from '../Search';
 import { SiteSectionTabs, encodeClientSiteSections } from '../SiteSections';
 import { HeaderLink } from './HeaderLink';
 import { HeaderLinkMore } from './HeaderLinkMore';
@@ -22,9 +17,9 @@ import { SpacesDropdown } from './SpacesDropdown';
 export function Header(props: {
     context: GitBookSiteContext;
     withTopHeader?: boolean;
-    withAIChat?: boolean;
+    search?: React.ReactNode;
 }) {
-    const { context, withTopHeader, withAIChat } = props;
+    const { context, withTopHeader, search } = props;
     const { siteSpace, siteSpaces, sections, customization } = context;
 
     return (
@@ -90,7 +85,7 @@ export function Header(props: {
                                         'text-tint-strong',
                                         'theme-bold:text-header-link',
                                         'hover:bg-tint-hover',
-                                        'theme-bold:hover:bg-header-link/3',
+                                        'hover:theme-bold:bg-header-link/3',
                                         'page-no-toc:hidden'
                                     )}
                                 />
@@ -115,7 +110,6 @@ export function Header(props: {
                                               'lg:max-w-lg',
                                               'lg:ml-[max(calc((100%-18rem-48rem)/2),1.5rem)]', // container (100%) - sidebar (18rem) - content (48rem)
                                               'xl:ml-[max(calc((100%-18rem-48rem-14rem-3rem)/2),1.5rem)]', // container (100%) - sidebar (18rem) - content (48rem) - outline (14rem) - margin (3rem)
-                                              'page-no-toc:lg:ml-[max(calc((100%-18rem-48rem-18rem-3rem)/2),0rem)]',
                                               'md:mr-auto',
                                               'order-last',
                                               'md:order-[unset]',
@@ -123,50 +117,7 @@ export function Header(props: {
                                         : ['order-last']
                                 )}
                             >
-                                <Suspense fallback={null}>
-                                    <SearchButton
-                                        style={[
-                                            'theme-bold:bg-header-link/2',
-                                            'theme-bold:hover:bg-header-link/3',
-
-                                            'theme-bold:text-header-link/8',
-                                            'theme-bold:hover:text-header-link',
-
-                                            'theme-bold:ring-header-link/4',
-                                            'theme-bold:hover:ring-header-link/5',
-
-                                            'theme-bold:[&_svg]:text-header-link/10',
-                                            'theme-bold:[&_.shortcut]:text-header-link/8',
-
-                                            'theme-bold:contrast-more:bg-header-background',
-                                            'theme-bold:contrast-more:text-header-link',
-                                            'theme-bold:contrast-more:ring-header-link',
-                                            'theme-bold:contrast-more:hover:bg-header-background',
-                                            'theme-bold:contrast-more:hover:ring-header-link',
-                                            'theme-bold:contrast-more:focus:text-header-link',
-                                            'theme-bold:contrast-more:focus:bg-header-background',
-                                            'theme-bold:contrast-more:focus:ring-header-link',
-
-                                            'theme-bold:shadow-none',
-                                            'theme-bold:hover:shadow-none',
-                                            'whitespace-nowrap',
-                                        ]}
-                                    >
-                                        <span className={tcls('flex-1')}>
-                                            {t(
-                                                getSpaceLanguage(customization),
-                                                // TODO: remove aiSearch and optional chain once the cache has been fully updated (after 11/07/2025)
-                                                customization.aiSearch?.enabled ||
-                                                    customization.ai?.mode !==
-                                                        CustomizationAIMode.None
-                                                    ? 'search_or_ask'
-                                                    : 'search'
-                                            )}
-                                            ...
-                                        </span>
-                                    </SearchButton>
-                                </Suspense>
-                                {withAIChat && <AIChatButton />}
+                                {search}
                             </div>
 
                             {customization.header.links.length > 0 && (

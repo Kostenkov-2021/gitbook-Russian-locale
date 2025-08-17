@@ -62,9 +62,9 @@ function opacity() {
 const config: Config = {
     darkMode: 'class',
     content: [
-        './src/pages/**/*.{js,ts,jsx,tsx,mdx}',
-        './src/components/**/*.{js,ts,jsx,tsx,mdx}',
-        './src/app/**/*.{js,ts,jsx,tsx,mdx}',
+        './src/pages/**/*.{js,ts,jsx,tsx,mdx,css}',
+        './src/components/**/*.{js,ts,jsx,tsx,mdx,css}',
+        './src/app/**/*.{js,ts,jsx,tsx,mdx,css}',
     ],
     theme: {
         extend: {
@@ -293,15 +293,33 @@ const config: Config = {
                     ])
                 ),
             },
+            divideColor: {
+                primary: generateVarShades('primary', [ColorCategory.borders]),
+                tint: generateVarShades('tint', [ColorCategory.borders]),
+                neutral: generateVarShades('neutral', [ColorCategory.borders]),
+
+                ...Object.fromEntries(
+                    semanticColors.map((color) => [
+                        color,
+                        generateVarShades(color, [ColorCategory.borders]),
+                    ])
+                ),
+            },
             transitionTimingFunction: {
                 quint: 'cubic-bezier(0.83, 0, 0.17, 1)',
             },
             animation: {
                 present: 'present 200ms cubic-bezier(0.25, 1, 0.5, 1) both',
+                'present-slow': 'present 500ms cubic-bezier(0.25, 1, 0.5, 1) both',
                 scaleIn: 'scaleIn 200ms ease both',
+                'scaleIn-slow': 'scaleIn 500ms ease both',
                 scaleOut: 'scaleOut 200ms ease both',
+                'scaleOut-slow': 'scaleOut 500ms ease both',
                 fadeIn: 'fadeIn 200ms ease both',
+                'fadeIn-slow': 'fadeIn 500ms ease both',
                 fadeOut: 'fadeOut 200ms ease both',
+                'fadeOut-slow': 'fadeOut 500ms ease both',
+
                 enterFromLeft: 'enterFromLeft 250ms cubic-bezier(0.83, 0, 0.17, 1) both',
                 enterFromRight: 'enterFromRight 250ms cubic-bezier(0.83, 0, 0.17, 1) both',
                 exitToLeft: 'exitToLeft 250ms cubic-bezier(0.83, 0, 0.17, 1) both',
@@ -375,20 +393,36 @@ const config: Config = {
                     },
                 },
                 pathLoading: {
+                    '0%,10%': {
+                        strokeDasharray: '100 100',
+                        strokeDashoffset: '0',
+                        opacity: '1',
+                    },
+                    '50%': {
+                        strokeDasharray: '100 100',
+                        strokeDashoffset: '-100',
+                        opacity: '0',
+                    },
+                    '51%': {
+                        strokeDasharray: '0 100',
+                        strokeDashoffset: '0',
+                        opacity: '0',
+                    },
+                    '90%,100%': {
+                        strokeDasharray: '100 100',
+                        strokeDashoffset: '0',
+                        opacity: '1',
+                    },
+                },
+                pathEnter: {
                     '0%': {
                         strokeDasharray: '0 100',
                         strokeDashoffset: '0',
                         opacity: '0',
                     },
-                    '40%, 60%': {
-                        strokeDasharray: '100 100',
-                        strokeDashoffset: '0',
-                        opacity: '1',
-                    },
                     '100%': {
                         strokeDasharray: '100 100',
-                        strokeDashoffset: '-100',
-                        opacity: '0',
+                        strokeDashoffset: '0',
                     },
                 },
                 stroke: {
@@ -406,6 +440,14 @@ const config: Config = {
                         strokeDasharray: '100 100',
                         strokeDashoffset: '-100',
                         opacity: '0',
+                    },
+                },
+                bob: {
+                    '0%, 100%': {
+                        transform: 'translateY(0)',
+                    },
+                    '50%': {
+                        transform: 'translateY(-10%)',
                     },
                 },
                 enterFromRight: {
@@ -450,6 +492,7 @@ const config: Config = {
         },
         opacity: opacity(),
         screens: {
+            xs: '480px',
             sm: '640px',
             md: '768px',
             lg: '1024px',
@@ -490,6 +533,9 @@ const config: Config = {
                 'announcement',
                 'html:not(.announcement-hidden):has(#announcement-banner) &'
             );
+
+            // Variant to target first-of-type in a column
+            addVariant('column-first-of-type', '.group\\/column > &:first-of-type'); // optional for group-based variants
 
             const customisationVariants = {
                 // Sidebar styles
@@ -536,9 +582,9 @@ const config: Config = {
             /**
              * Variant when the page contains a block that will be rendered in full-width mode.
              */
-            addVariant('site-full-width', 'body:has(.site-full-width) &');
-            addVariant('site-default-width', 'body:has(.site-default-width) &');
-            addVariant('page-full-width', 'body:has(.page-full-width) &');
+            addVariant('site-width-wide', 'body:has(.site-width-wide) &');
+            addVariant('site-width-default', 'body:has(.site-width-default) &');
+            addVariant('page-width-wide', 'body:has(.page-width-wide) &');
 
             /**
              * Variant when the page is configured to hide the table of content.

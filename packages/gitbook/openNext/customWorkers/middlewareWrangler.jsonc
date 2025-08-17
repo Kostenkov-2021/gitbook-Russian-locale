@@ -21,7 +21,12 @@
         "dev": {
             "vars": {
                 "STAGE": "dev",
-                "NEXT_PRIVATE_DEBUG_CACHE": "true"
+                "NEXT_PRIVATE_DEBUG_CACHE": "true",
+                // When deployed locally, we don't have access to the tag cache here,
+                // we should just bypass the cache to go to the server directly
+                "SHOULD_BYPASS_CACHE": "true",
+                "OPEN_NEXT_REQUEST_ID_HEADER": "true",
+                "GITBOOK_URL": "http://localhost:8771"
             },
             "r2_buckets": [
                 {
@@ -85,7 +90,8 @@
         "staging": {
             "vars": {
                 "STAGE": "staging",
-                "WORKER_VERSION_ID": "TO_REPLACE"
+                "WORKER_VERSION_ID": "TO_REPLACE",
+                "OPEN_NEXT_REQUEST_ID_HEADER": "true"
             },
             "routes": [
                 {
@@ -153,7 +159,8 @@
                 // TODO: remove this once the issue is fixed
                 "DEBUG_CLOUDFLARE": "true",
                 "WORKER_VERSION_ID": "TO_REPLACE",
-                "STAGE": "production"
+                "STAGE": "production",
+                "OPEN_NEXT_REQUEST_ID_HEADER": "true"
             },
             "routes": [
                 {

@@ -4,6 +4,7 @@ import {
     getDataOrNull,
     throwIfDataError,
 } from '@/lib/data';
+import { getLogger } from '@/lib/logger';
 import { getSiteStructureSections } from '@/lib/sites';
 import type {
     ChangeRequest,
@@ -24,7 +25,7 @@ import { notFound } from 'next/navigation';
 import { assert } from 'ts-essentials';
 import { GITBOOK_URL } from './env';
 import { type ImageResizer, createImageResizer } from './images';
-import { type GitBookLinker, createLinker } from './links';
+import { type GitBookLinker, createLinker, linkerForPublishedURL } from './links';
 
 /**
  * Data about the site URL. Provided by the middleware.
@@ -43,6 +44,7 @@ export type SiteURLData = Pick<
     | 'siteSection'
     | 'siteBasePath'
     | 'basePath'
+    | 'contextId'
 > & {
     /**
      * Identifier used for image resizing.
@@ -122,6 +124,9 @@ export type GitBookSiteContext = GitBookSpaceContext & {
 
     /** Scripts to load for the site. */
     scripts: SiteIntegrationScript[];
+
+    /** Context ID used by adaptive content. It represents an unique identifier for the authentication context */
+    contextId?: string;
 };
 
 /**
@@ -199,6 +204,7 @@ export async function fetchSiteContextByURLLookup(
         shareKey: data.shareKey,
         changeRequest: data.changeRequest,
         revision: data.revision,
+        contextId: data.contextId,
     });
 }
 
@@ -216,6 +222,7 @@ export async function fetchSiteContextByIds(
         shareKey: string | undefined;
         changeRequest: string | undefined;
         revision: string | undefined;
+        contextId?: string;
     }
 ): Promise<GitBookSiteContext> {
     const { dataFetcher } = baseContext;
@@ -290,10 +297,11 @@ export async function fetchSiteContextByIds(
                 return siteSpaceSettings;
             }
 
+            const logger = getLogger().subLogger('fetchSiteContextByIds', {});
             // We got the pointer from an API and customizations from another.
             // It's possible that the two are unsynced leading to not found customizations for the space.
             // It's better to fallback on customization of the site that displaying an error.
-            console.warn('Customization not found for site space', ids.siteSpace);
+            logger.warn('Customization not found for site space', ids.siteSpace);
         }
 
         return customizations.site;
@@ -301,6 +309,9 @@ export async function fetchSiteContextByIds(
 
     return {
         ...spaceContext,
+        linker: site.urls.published
+            ? linkerForPublishedURL(spaceContext.linker, site.urls.published)
+            : spaceContext.linker,
         organizationId: ids.organization,
         site,
         siteSpaces,
@@ -309,6 +320,7 @@ export async function fetchSiteContextByIds(
         structure: siteStructure,
         sections,
         scripts,
+        contextId: ids.contextId,
     };
 }
 

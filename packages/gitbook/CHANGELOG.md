@@ -1,5 +1,72 @@
 # gitbook
 
+## 0.15.0
+
+### Minor Changes
+
+- d130532: Suggest questions in the current space context
+
+### Patch Changes
+
+- 44f4151: Fix close buttons tooltips
+- d903273: Strip visitor params from URL
+- df7de8f: Fix an issue where links were not rendering properly in Ask AI answers
+- d270b4a: All tracking is now disabled for dynamic routes such as the site preview.
+- b1f608b: Implement basic URL scheme for assistant with ask
+- d024658: Prevent page breaks inside blocks when printing
+- 185cdb4: Fix scrolling to anchor positionning
+- 5c49235: Remove highlighting in Safari for PowerShell and C++ to avoid page crash until next version with bug fix is released
+- f1a6dec: Update OpenAPI parser
+- 2cdba53: Upgrade to Tailwind v4
+- Updated dependencies [2cdba53]
+- Updated dependencies [f1a6dec]
+  - @gitbook/react-math@0.6.1
+  - @gitbook/icons@0.2.2
+  - @gitbook/openapi-parser@3.0.0
+  - @gitbook/react-contentkit@0.7.3
+  - @gitbook/react-openapi@1.3.5
+
+## 0.14.1
+
+### Patch Changes
+
+- 7c951ef: 'Support new colors in text formatting
+- 39c4f76: Add fullwidth page option
+- eb1bd3a: AI response feedback buttons
+- 2ba7e54: Fix headings styles in hint block
+- 250c194: Add nosnippet to announcement banner.
+- 4aeb81b: Fix search input styling & text cutoff
+- 68f0dbc: Add confirmation modal to contentkit button
+- 611e286: Remove padding on first Heading in Columns
+- b0c534f: Tweaks to AI Chat and AI Actions Dropdown
+- Updated dependencies [b5ad0ce]
+  - @gitbook/openapi-parser@2.2.2
+  - @gitbook/react-openapi@1.3.4
+
+## 0.14.0
+
+### Minor Changes
+
+- 0003030: Implement AI actions dropdown
+- acb9f53: New search layout
+
+### Patch Changes
+
+- 334cfdd: Fix responsive class for SearchInput button
+- 6816f0f: add browserlists and fix old browser css-masks
+- 9ee9082: Refactor icon loading state in AIAction components
+- 52ab368: Reposition AI Actions dropdown
+- 7212345: Fix AI Actions dropdown and LLM integration
+- 8daede5: Ensure all content links are resolved relatively to preview.
+- ed684c1: Move AI Actions markdown fetching to client-side
+- 9cc5a78: Generalise keyboard shortcuts, add Cmd+J to AI Chat
+- Updated dependencies [6816f0f]
+- Updated dependencies [1738677]
+  - @gitbook/icons@0.2.1
+  - @gitbook/openapi-parser@2.2.1
+  - @gitbook/react-contentkit@0.7.2
+  - @gitbook/react-openapi@1.3.3
+
 ## 0.13.1
 
 ### Patch Changes

@@ -252,6 +252,8 @@ export async function serveOGImage(baseContext: GitBookSiteContext, params: Page
             height: 630,
             fonts: fonts.length ? fonts : undefined,
             headers: {
+                // We don't want to cache the image for too long in the browser
+                'cache-control': 'public, max-age=300, s-maxage=31536000',
                 'cache-tag': [
                     getCacheTag({
                         tag: 'site',
@@ -366,19 +368,22 @@ const SUPPORTED_IMAGE_TYPES = [
 async function fetchImage(url: string, options?: ResizeImageOptions) {
     // Skip early some images to avoid fetching them
     const parsedURL = new URL(url);
-    if (UNSUPPORTED_IMAGE_EXTENSIONS.includes(getExtension(parsedURL.pathname).toLowerCase())) {
-        return null;
-    }
 
-    // We use the image resizer to normalize the image format to PNG.
-    // as @vercel/og can sometimes fail on some JPEG images.
-    const response =
-        checkIsSizableImageURL(url) !== SizableImageAction.Resize
-            ? await fetch(url)
-            : await resizeImage(url, {
-                  ...options,
-                  format: 'png',
-              });
+    let response: Response;
+    if (
+        UNSUPPORTED_IMAGE_EXTENSIONS.includes(getExtension(parsedURL.pathname).toLowerCase()) ||
+        checkIsSizableImageURL(url) === SizableImageAction.Resize
+    ) {
+        // We use the image resizer to normalize the image format to PNG.
+        // as @vercel/og can sometimes fail on some JPEG images, and will fail on avif and webp images.
+        response = await resizeImage(url, {
+            ...options,
+            format: 'png',
+            bypassSkipCheck: true, // Bypass the check to see if the image can be resized
+        });
+    } else {
+        response = await fetch(url);
+    }
 
     // Filter out unsupported image types
     const contentType = response.headers.get('content-type');
@@ -393,7 +398,20 @@ async function fetchImage(url: string, options?: ResizeImageOptions) {
 
     try {
         const { width, height } = imageSize(buffer);
-        return { src, width, height };
+        // If we provide a width and height in the options, we always want to use them
+        // The resize in cloudflare can fail and will fallback to the original size, which could stretch the image
+        // If the image is smaller than the requested size, it will also return the original image
+        if (
+            (options?.width && options.width !== width) ||
+            (options?.height && options.height !== height)
+        ) {
+            return {
+                src,
+                width: options.width,
+                height: options.height,
+            };
+        }
+        return { src, width: width, height: height };
     } catch {
         return null;
     }

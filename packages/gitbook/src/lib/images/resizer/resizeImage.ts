@@ -1,4 +1,5 @@
 import 'server-only';
+import { getLogger } from '@/lib/logger';
 import assertNever from 'assert-never';
 import { GITBOOK_IMAGE_RESIZE_MODE } from '../../env';
 import { SizableImageAction, checkIsSizableImageURL } from '../checkIsSizableImageURL';
@@ -34,7 +35,8 @@ export async function getImageSize(
             height: json.original.height,
         };
     } catch (error) {
-        console.warn(`Error getting image size for ${input}:`, error);
+        const logger = getLogger().subLogger('imageResizing');
+        logger.warn(`Error getting image size for ${input}:`, error);
         return null;
     }
 }
@@ -46,10 +48,15 @@ export async function resizeImage(
     input: string,
     options: CloudflareImageOptions & {
         signal?: AbortSignal;
+        /**
+         * Bypass the check to see if the image can be resized.
+         * This is useful for some format that are not supported by @next/og and need to be transformed
+         */
+        bypassSkipCheck?: boolean;
     }
 ): Promise<Response> {
     const action = checkIsSizableImageURL(input);
-    if (action === SizableImageAction.Skip) {
+    if (action === SizableImageAction.Skip && !options.bypassSkipCheck) {
         throw new Error(
             'Cannot resize this image, this function should have never been called on this url'
         );

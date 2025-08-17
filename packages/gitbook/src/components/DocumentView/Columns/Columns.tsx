@@ -18,7 +18,7 @@ export function Columns(props: BlockProps<DocumentBlockColumns>) {
                             document={document}
                             ancestorBlocks={[...ancestorBlocks, block, columnBlock]}
                             context={context}
-                            style="w-full space-y-4 *:max-w-full"
+                            style="group/column w-full space-y-4 *:max-w-full"
                         />
                     </Column>
                 );
@@ -51,7 +51,7 @@ function transformLengthToCSS(length: Length | undefined) {
     if (length.unit === '%') {
         return {
             className: [
-                'md:flex-shrink-0',
+                'md:shrink-0',
                 COLUMN_WIDTHS[Math.round(length.value * 0.01 * (COLUMN_WIDTHS.length - 1))],
             ],
         };

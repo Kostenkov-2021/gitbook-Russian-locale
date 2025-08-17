@@ -7,6 +7,7 @@ import {
     type RenderIntegrationUI,
 } from '@gitbook/api';
 import { getCacheTag, getComputedContentSourceCacheTags } from '@gitbook/cache-tags';
+import { parse as parseCacheControl } from '@tusbar/cache-control';
 import { unstable_cacheLife as cacheLife, unstable_cacheTag as cacheTag } from 'next/cache';
 import { cache } from '../cache';
 import { DataFetcherError, wrapCacheDataFetcherError } from './errors';
@@ -50,126 +51,144 @@ export function createDataFetcher(
         // API that are tied to the token
         //
         getPublishedContentSite(params) {
-            return trace('getPublishedContentSite', () =>
-                getPublishedContentSite(input, {
-                    organizationId: params.organizationId,
-                    siteId: params.siteId,
-                    siteShareKey: params.siteShareKey,
-                })
-            );
+            return getPublishedContentSite(input, {
+                organizationId: params.organizationId,
+                siteId: params.siteId,
+                siteShareKey: params.siteShareKey,
+            });
         },
         getSiteRedirectBySource(params) {
-            return trace('getSiteRedirectBySource', () =>
-                getSiteRedirectBySource(input, {
-                    organizationId: params.organizationId,
-                    siteId: params.siteId,
-                    siteShareKey: params.siteShareKey,
-                    source: params.source,
-                })
-            );
+            return getSiteRedirectBySource(input, {
+                organizationId: params.organizationId,
+                siteId: params.siteId,
+                siteShareKey: params.siteShareKey,
+                source: params.source,
+            });
         },
         getRevision(params) {
-            return trace('getRevision', () =>
-                getRevision(input, {
-                    spaceId: params.spaceId,
-                    revisionId: params.revisionId,
-                })
-            );
+            return getRevision(input, {
+                spaceId: params.spaceId,
+                revisionId: params.revisionId,
+            });
         },
         getRevisionPageByPath(params) {
-            return trace('getRevisionPageByPath', () =>
-                getRevisionPageByPath(input, {
-                    spaceId: params.spaceId,
-                    revisionId: params.revisionId,
-                    path: params.path,
-                })
-            );
+            return getRevisionPageByPath(input, {
+                spaceId: params.spaceId,
+                revisionId: params.revisionId,
+                path: params.path,
+            });
         },
         getRevisionPageMarkdown(params) {
-            return trace('getRevisionPageMarkdown', () =>
-                getRevisionPageMarkdown(input, {
-                    spaceId: params.spaceId,
-                    revisionId: params.revisionId,
-                    pageId: params.pageId,
-                })
-            );
+            return getRevisionPageMarkdown(input, {
+                spaceId: params.spaceId,
+                revisionId: params.revisionId,
+                pageId: params.pageId,
+            });
         },
         getRevisionPageDocument(params) {
-            return trace('getRevisionPageDocument', () =>
-                getRevisionPageDocument(input, {
-                    spaceId: params.spaceId,
-                    revisionId: params.revisionId,
-                    pageId: params.pageId,
-                })
-            );
+            return getRevisionPageDocument(input, {
+                spaceId: params.spaceId,
+                revisionId: params.revisionId,
+                pageId: params.pageId,
+            });
+        },
+        getRevisionReusableContentDocument(params) {
+            return getRevisionReusableContentDocument(input, {
+                spaceId: params.spaceId,
+                revisionId: params.revisionId,
+                reusableContentId: params.reusableContentId,
+            });
         },
         getLatestOpenAPISpecVersionContent(params) {
-            return trace('getLatestOpenAPISpecVersionContent', () =>
-                getLatestOpenAPISpecVersionContent(input, {
-                    organizationId: params.organizationId,
-                    slug: params.slug,
-                })
-            );
+            return getLatestOpenAPISpecVersionContent(input, {
+                organizationId: params.organizationId,
+                slug: params.slug,
+            });
         },
         getSpace(params) {
-            return trace('getSpace', () =>
-                getSpace(input, {
-                    spaceId: params.spaceId,
-                    shareKey: params.shareKey,
-                })
-            );
+            return getSpace(input, {
+                spaceId: params.spaceId,
+                shareKey: params.shareKey,
+            });
         },
         getChangeRequest(params) {
-            return trace('getChangeRequest', () =>
-                getChangeRequest(input, {
-                    spaceId: params.spaceId,
-                    changeRequestId: params.changeRequestId,
-                })
-            );
+            return getChangeRequest(input, {
+                spaceId: params.spaceId,
+                changeRequestId: params.changeRequestId,
+            });
         },
         getDocument(params) {
-            return trace('getDocument', () =>
-                getDocument(input, {
-                    spaceId: params.spaceId,
-                    documentId: params.documentId,
-                })
-            );
+            return getDocument(input, {
+                spaceId: params.spaceId,
+                documentId: params.documentId,
+            });
         },
         getComputedDocument(params) {
-            return trace('getComputedDocument', () =>
-                getComputedDocument(input, {
-                    organizationId: params.organizationId,
-                    spaceId: params.spaceId,
-                    source: params.source,
-                    seed: params.seed,
-                })
-            );
+            return getComputedDocument(input, {
+                organizationId: params.organizationId,
+                spaceId: params.spaceId,
+                source: params.source,
+                seed: params.seed,
+            });
         },
         getEmbedByUrl(params) {
-            return trace('getEmbedByUrl', () =>
-                getEmbedByUrl(input, {
-                    url: params.url,
-                    spaceId: params.spaceId,
-                })
-            );
+            return getEmbedByUrl(input, {
+                url: params.url,
+                spaceId: params.spaceId,
+            });
         },
         searchSiteContent(params) {
-            return trace('searchSiteContent', () => searchSiteContent(input, params));
+            return searchSiteContent(input, params);
         },
 
         renderIntegrationUi(params) {
-            return trace('renderIntegrationUi', () =>
-                renderIntegrationUi(input, {
-                    integrationName: params.integrationName,
-                    request: params.request,
-                })
-            );
+            return renderIntegrationUi(input, {
+                integrationName: params.integrationName,
+                request: params.request,
+            });
         },
 
         getUserById(userId) {
-            return trace('getUserById', () => getUserById(input, { userId }));
+            return getUserById(input, { userId });
         },
     };
+}
+
+/**
+ * Infer the cache life from the api response headers.
+ * @param response The response from the API call.
+ * @param defaultCacheLife The default cache life to use if not specified in the response.
+ * @returns nothing
+ */
+function cacheLifeFromResponse(
+    response: HttpResponse<unknown, unknown>,
+    defaultCacheLife: 'days' | 'max' | 'hours' | 'minutes' | 'seconds'
+) {
+    const cacheControlHeader = response.headers.get('x-gitbook-cache-control');
+    const parsed = parseCacheControl(cacheControlHeader || '');
+    const maxAge = parsed?.maxAge ?? parsed?.sharedMaxAge;
+    if (maxAge) {
+        return cacheLife({
+            stale: 60 * 5, // This one is only for the client,
+            revalidate: maxAge, // revalidate and expire are the same, we don't want stale data here
+            expire: maxAge,
+        });
+    }
+    // Typings in Next is "wrong" and does not allow us just use it as `cacheLife(defaultCacheLife)`
+    switch (defaultCacheLife) {
+        case 'days':
+            return cacheLife('days');
+        case 'max':
+            return cacheLife('max');
+        case 'hours':
+            return cacheLife('hours');
+        case 'minutes':
+            return cacheLife('minutes');
+        case 'seconds':
+            return cacheLife('seconds');
+        default:
+            throw new Error(`Unknown default cache life: ${defaultCacheLife}`);
+    }
 }
 
 const getUserById = cache(async (input: DataFetcherInput, params: { userId: string }) => {
@@ -333,7 +352,40 @@ const getRevisionPageDocument = cache(
                     );
 
                     cacheTag(...getCacheTagsFromResponse(res));
-                    cacheLife('max');
+                    cacheLifeFromResponse(res, 'max');
+
+                    return res.data;
+                }
+            );
+        });
+    }
+);
+
+const getRevisionReusableContentDocument = cache(
+    async (
+        input: DataFetcherInput,
+        params: { spaceId: string; revisionId: string; reusableContentId: string }
+    ) => {
+        'use cache';
+        return wrapCacheDataFetcherError(async () => {
+            return trace(
+                `getRevisionReusableContentDocument(${params.spaceId}, ${params.revisionId}, ${params.reusableContentId})`,
+                async () => {
+                    const api = apiClient(input);
+                    const res = await api.spaces.getReusableContentDocumentInRevisionById(
+                        params.spaceId,
+                        params.revisionId,
+                        params.reusableContentId,
+                        {
+                            evaluated: true,
+                        },
+                        {
+                            ...noCacheFetchOptions,
+                        }
+                    );
+
+                    cacheTag(...getCacheTagsFromResponse(res));
+                    cacheLifeFromResponse(res, 'max');
 
                     return res.data;
                 }
@@ -387,7 +439,7 @@ const getDocument = cache(
                     }
                 );
                 cacheTag(...getCacheTagsFromResponse(res));
-                cacheLife('max');
+                cacheLifeFromResponse(res, 'max');
                 return res.data;
             });
         });
@@ -432,7 +484,7 @@ const getComputedDocument = cache(
                         }
                     );
                     cacheTag(...getCacheTagsFromResponse(res));
-                    cacheLife('max');
+                    cacheLifeFromResponse(res, 'max');
                     return res.data;
                 }
             );

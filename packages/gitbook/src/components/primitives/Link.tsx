@@ -6,6 +6,8 @@ import React from 'react';
 import { tcls } from '@/lib/tailwind';
 import { SiteExternalLinksTarget } from '@gitbook/api';
 import { type TrackEventInput, useTrackEvent } from '../Insights';
+import { HashContext } from '../hooks';
+import { isExternalLink } from '../utils/link';
 import { type DesignTokenName, useClassnames } from './StyleProvider';
 
 // Props from Next, which includes NextLinkProps and all the things anchor elements support.
@@ -70,6 +72,7 @@ export const Link = React.forwardRef(function Link(
 ) {
     const { href, prefetch, children, insights, classNames, className, ...domProps } = props;
     const { externalLinksTarget } = React.useContext(LinkSettingsContext);
+    const { updateHashFromUrl } = React.useContext(HashContext);
     const trackEvent = useTrackEvent();
     const forwardedClassNames = useClassnames(classNames || []);
     const isExternal = isExternalLink(href);
@@ -77,6 +80,9 @@ export const Link = React.forwardRef(function Link(
 
     const onClick = (event: React.MouseEvent<HTMLAnchorElement>) => {
         const isExternalWithOrigin = isExternalLink(href, window.location.origin);
+        if (!isExternal) {
+            updateHashFromUrl(href);
+        }
 
         if (insights) {
             trackEvent(insights, undefined, { immediate: isExternalWithOrigin });
@@ -89,7 +95,7 @@ export const Link = React.forwardRef(function Link(
         if (isInIframe && isExternalWithOrigin) {
             event.preventDefault();
             window.open(href, '_blank', 'noopener noreferrer');
-        } else {
+        } else if (isExternal && !event.ctrlKey && !event.metaKey) {
             // The external logic server-side is limited
             // so we use the client-side logic to determine the real target
             // by default the target is "_self".
@@ -122,11 +128,15 @@ export const Link = React.forwardRef(function Link(
         );
     }
 
+    // Not sure why yet, but it seems necessary to force prefetch to true
+    // default behavior doesn't seem to properly use the client router cache.
+    const _prefetch = prefetch === null || prefetch === undefined ? true : prefetch;
+
     return (
         <NextLink
             ref={ref}
             href={href}
-            prefetch={prefetch}
+            prefetch={_prefetch}
             className={tcls(...forwardedClassNames, className)}
             {...domProps}
             onClick={onClick}
@@ -177,27 +187,3 @@ export const LinkOverlay = React.forwardRef(function LinkOverlay(
         </Link>
     );
 });
-
-/**
- * Check if a link is external, compared to an origin.
- */
-function isExternalLink(href: string, origin: string | null = null) {
-    if (!URL.canParse) {
-        // If URL.canParse is not available, we quickly check if it looks like a URL
-        return href.startsWith('http');
-    }
-
-    if (!URL.canParse(href)) {
-        // If we can't parse the href, we consider it a relative path
-        return false;
-    }
-
-    if (!origin) {
-        // If origin is not provided, we consider the link external
-        return true;
-    }
-
-    // If the url points to the same origin, we consider it internal
-    const parsed = new URL(href);
-    return parsed.origin !== origin;
-}

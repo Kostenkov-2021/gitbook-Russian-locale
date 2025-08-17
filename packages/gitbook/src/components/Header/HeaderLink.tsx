@@ -104,7 +104,7 @@ function HeaderItemButton(
     const variant = (() => {
         switch (linkStyle) {
             case 'button-secondary':
-                return 'secondary';
+                return 'header';
             case 'button-primary':
                 return 'primary';
             default:
@@ -119,10 +119,8 @@ function HeaderItemButton(
             className={tcls(
                 {
                     'button-primary':
-                        'theme-bold:bg-header-link theme-bold:text-header-background theme-bold:shadow-none theme-bold:hover:bg-header-link theme-bold:hover:text-header-background theme-bold:hover:shadow-none',
-                    'button-secondary': tcls(
-                        'theme-bold:bg-header-link/2 theme-gradient:bg-tint-base theme-muted:bg-tint-base theme-bold:text-header-link theme-bold:shadow-none theme-bold:ring-header-link/4 theme-bold:hover:bg-header-link/3 theme-bold:hover:text-header-link theme-bold:hover:shadow-none theme-bold:hover:ring-header-link/5 theme-bold:contrast-more:bg-header-background theme-bold:contrast-more:text-header-link theme-bold:contrast-more:ring-header-link theme-bold:contrast-more:hover:ring-header-link'
-                    ),
+                        'theme-bold:bg-header-link theme-bold:text-header-background theme-bold:shadow-none hover:theme-bold:bg-header-link hover:theme-bold:text-header-background hover:theme-bold:shadow-none',
+                    'button-secondary': '',
                 }[linkStyle]
             )}
             insights={{
@@ -159,7 +157,7 @@ function getHeaderLinkClassName(_props: { headerPreset: CustomizationHeaderPrese
         'links-accent:py-0.5', // Prevent underline from being cut off at the bottom
 
         'theme-bold:text-header-link',
-        'theme-bold:hover:!text-header-link/7'
+        'hover:theme-bold:text-header-link/7!'
     );
 }
 
