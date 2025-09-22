@@ -71,8 +71,7 @@ export interface AskAnswerResult {
 export async function searchAllSiteContent(query: string): Promise<OrderedComputedResult[]> {
     return traceErrorOnly('Search.searchAllSiteContent', async () => {
         const context = await getServerActionBaseContext();
-
-        return await searchSiteContent(context, {
+        return searchSiteContent(context, {
             query,
             scope: { mode: 'all' },
         });
@@ -82,18 +81,33 @@ export async function searchAllSiteContent(query: string): Promise<OrderedComput
 /**
  * Server action to search content in a space.
  */
-export async function searchSiteSpaceContent(query: string): Promise<OrderedComputedResult[]> {
+export async function searchCurrentSiteSpaceContent(
+    query: string,
+    siteSpaceId: string
+): Promise<OrderedComputedResult[]> {
     return traceErrorOnly('Search.searchSiteSpaceContent', async () => {
         const context = await getServerActionBaseContext();
-        const siteURLData = await getSiteURLDataFromMiddleware();
 
         return await searchSiteContent(context, {
             query,
-            // If we have a siteSectionId that means its a sections site use `current` mode
-            // which searches in the current space + all default spaces of sections
-            scope: siteURLData.siteSection
-                ? { mode: 'current', siteSpaceId: siteURLData.siteSpace }
-                : { mode: 'specific', siteSpaceIds: [siteURLData.siteSpace] },
+            scope: { mode: 'current', siteSpaceId },
+        });
+    });
+}
+
+/**
+ * Server action to search content in a specific space.
+ */
+export async function searchSpecificSiteSpaceContent(
+    query: string,
+    siteSpaceIds: string[]
+): Promise<OrderedComputedResult[]> {
+    return traceErrorOnly('Search.searchSiteSpaceContent', async () => {
+        const context = await getServerActionBaseContext();
+
+        return await searchSiteContent(context, {
+            query,
+            scope: { mode: 'specific', siteSpaceIds },
         });
     });
 }
@@ -124,8 +138,7 @@ export async function streamAskQuestion({
                     },
                     scope: {
                         mode: 'default',
-                        // Include the current site space regardless.
-                        includedSiteSpaces: [context.siteSpace.id],
+                        currentSiteSpace: context.siteSpace.id,
                     },
                 },
                 { format: 'document' }
@@ -270,7 +283,7 @@ async function searchSiteContent(
 
     return (
         await Promise.all(
-            searchResults.map(async (spaceItem) => {
+            searchResults.map((spaceItem) => {
                 const found = findSiteSpaceBy(
                     structure,
                     (siteSpace) => siteSpace.space.id === spaceItem.id
@@ -355,7 +368,7 @@ async function transformAnswer(
                         mode: 'default',
                         contentContext: context,
                         wrapBlocksInSuspense: false,
-                        shouldRenderLinkPreviews: false, // We don't want to render link previews in the AI answer.
+                        withLinkPreviews: false, // We don't want to render link previews in the AI answer.
                     }}
                     style={['space-y-5']}
                 />

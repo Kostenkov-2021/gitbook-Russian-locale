@@ -1,5 +1,5 @@
 import { type JwtPayload, jwtDecode } from 'jwt-decode';
-import type { NextRequest } from 'next/server';
+import { type NextRequest, NextResponse } from 'next/server';
 import hash from 'object-hash';
 
 const VISITOR_AUTH_PARAM = 'jwt_token';
@@ -157,7 +157,7 @@ export function getVisitorUnsignedClaims(args: {
                 if (typeof parsed === 'object' && parsed !== null) {
                     Object.assign(claims, parsed);
                 }
-            } catch (_err) {
+            } catch {
                 console.warn(`Invalid JSON in unsigned claim cookie "${cookie.name}"`);
             }
         }
@@ -188,7 +188,7 @@ function setVisitorClaimByPath(
     let current = claims;
 
     for (let index = 0; index < keys.length; index++) {
-        const key = keys[index];
+        const key = keys[index]!;
 
         if (index === keys.length - 1) {
             current[key] = value;
@@ -442,4 +442,46 @@ export function getVisitorAuthCookieMaxAge(decoded: JwtPayload): number {
     }
 
     return defaultMaxAge;
+}
+
+/**
+ * Handler for the /~gitbook/visitor middleware route to expose visitor data.
+ */
+export function serveVisitorClaimsDataRequest(request: NextRequest, siteRequestURL: URL) {
+    const { visitorToken, unsignedClaims } = getVisitorData({
+        cookies: request.cookies.getAll(),
+        url: siteRequestURL,
+    });
+
+    if (!visitorToken && !Object.keys(unsignedClaims).length) {
+        return NextResponse.json({});
+    }
+
+    const visitorClaims = {
+        visitor: {
+            claims: {
+                unsigned: unsignedClaims,
+            },
+        },
+    };
+
+    if (!visitorToken) {
+        return NextResponse.json(visitorClaims);
+    }
+
+    try {
+        const decodedJwtPayload = jwtDecode(visitorToken.token);
+        return NextResponse.json({
+            visitor: {
+                claims: {
+                    ...visitorClaims.visitor.claims,
+                    ...decodedJwtPayload,
+                },
+            },
+        });
+    } catch (error) {
+        console.warn('Error decoding visitor token', error);
+    }
+
+    return NextResponse.json(visitorClaims);
 }

@@ -3,7 +3,6 @@ import { SiteInsightsTrademarkPlacement } from '@gitbook/api';
 import type React from 'react';
 
 import { tcls } from '@/lib/tailwind';
-
 import { PagesList } from './PagesList';
 import { TOCScrollContainer } from './TOCScroller';
 import { TableOfContentsScript } from './TableOfContentsScript';
@@ -16,7 +15,7 @@ export async function TableOfContents(props: {
     innerHeader?: React.ReactNode; // Displayed outside the scrollable TOC, directly above the page list
 }) {
     const { innerHeader, context, header } = props;
-    const { space, customization, revision } = context;
+    const { customization, revision } = context;
 
     const pages = await encodeClientTableOfContents(context, revision.pages, revision.pages);
 
@@ -57,6 +56,8 @@ export async function TableOfContents(props: {
                     // Client-side dynamic positioning (CSS vars applied by script)
                     'lg:[html[style*="--toc-top-offset"]_&]:top-(--toc-top-offset)!',
                     'lg:[html[style*="--toc-height"]_&]:h-(--toc-height)!',
+                    'lg:page-no-toc:[html[style*="--outline-top-offset"]_&]:top-(--outline-top-offset)!',
+                    'lg:page-no-toc:[html[style*="--outline-height"]_&]:top-(--outline-height)!',
 
                     'pt-6',
                     'pb-4',
@@ -96,17 +97,16 @@ export async function TableOfContents(props: {
                         'page-has-toc:[html.sidebar-filled.circular-corners_&]:rounded-3xl'
                     )}
                 >
-                    {innerHeader && <div className="px-5 *:my-4">{innerHeader}</div>}
+                    {innerHeader ? (
+                        <div className="my-4 flex flex-col space-y-4 px-5 empty:hidden">
+                            {innerHeader}
+                        </div>
+                    ) : null}
                     <TOCScrollContainer // The scrollview inside the sidebar
                         className={tcls(
                             'flex grow flex-col p-2',
                             customization.trademark.enabled && 'lg:pb-20',
-                            'lg:gutter-stable overflow-y-auto',
-                            '[&::-webkit-scrollbar]:bg-transparent',
-                            '[&::-webkit-scrollbar-thumb]:bg-transparent',
-                            '[&::-webkit-scrollbar]:group-hover:bg-tint-subtle',
-                            '[&::-webkit-scrollbar-thumb]:group-hover:bg-tint-7',
-                            '[&::-webkit-scrollbar-thumb:hover]:group-hover:bg-tint-8'
+                            'hide-scrollbar overflow-y-auto'
                         )}
                     >
                         <PagesList
@@ -115,8 +115,7 @@ export async function TableOfContents(props: {
                         />
                         {customization.trademark.enabled ? (
                             <Trademark
-                                space={space}
-                                customization={customization}
+                                context={context}
                                 placement={SiteInsightsTrademarkPlacement.Sidebar}
                             />
                         ) : null}

@@ -22,10 +22,12 @@ import {
     getResponseCookiesForVisitorAuth,
     getVisitorData,
     normalizeVisitorURL,
+    serveVisitorClaimsDataRequest,
 } from '@/lib/visitors';
 import { serveResizedImage } from '@/routes/image';
 import { cookies } from 'next/headers';
 import type { SiteURLData } from './lib/context';
+import { serveProxyAnalyticsEvent } from './lib/tracking';
 export const config = {
     matcher: [
         '/((?!_next/static|_next/image|~gitbook/static|~gitbook/revalidate|~gitbook/monitoring|~scalar/proxy).*)',
@@ -125,7 +127,6 @@ async function serveSiteRoutes(requestURL: URL, request: NextRequest) {
 
     const { url: siteRequestURL, mode } = match;
     const imagesContextId = getImageResizingContextId(siteRequestURL);
-
     /**
      * Serve image resizing requests (all requests containing `/~gitbook/image`).
      * All URLs containing `/~gitbook/image` are rewritten to `/~gitbook/image`
@@ -140,12 +141,22 @@ async function serveSiteRoutes(requestURL: URL, request: NextRequest) {
         });
     }
 
+    //Forwards analytics events
+    if (siteRequestURL.pathname.endsWith('/~gitbook/__evt')) {
+        return await serveProxyAnalyticsEvent(request);
+    }
+
     // We want to filter hostnames that contains a port here as this is likely a malicious request.
     if (shouldFilterMaliciousRequests(siteRequestURL)) {
         return new Response('Invalid request', {
             status: 400,
             headers: { 'content-type': 'text/plain' },
         });
+    }
+
+    // Handler that returns visitor data for the app to consume.
+    if (siteRequestURL.pathname.endsWith('/~gitbook/visitor')) {
+        return serveVisitorClaimsDataRequest(request, siteRequestURL);
     }
 
     //
@@ -330,8 +341,6 @@ async function serveSiteRoutes(requestURL: URL, request: NextRequest) {
             ),
             pathname,
         ].join('/');
-
-        console.log(`rewriting ${request.nextUrl.toString()} to ${route}`);
 
         const rewrittenURL = new URL(`/${route}`, request.nextUrl.toString());
         rewrittenURL.search = request.nextUrl.search; // Preserve the original search params
@@ -531,13 +540,30 @@ function encodePathInSiteContent(rawPathname: string): {
         };
     }
 
+    // We skip encoding for paginated llms-full.txt pages (i.e. llms-full.txt/100)
+    if (pathname.match(/^llms-full\.txt\/\d+$/)) {
+        return { pathname, routeType: 'static' };
+    }
+
+    // If the pathname is an embedded page
+    const embedPage = pathname.match(/^~gitbook\/embed\/page\/(\S+)$/);
+    if (embedPage) {
+        return {
+            pathname: `~gitbook/embed/page/${encodeURIComponent(embedPage[1]!)}`,
+        };
+    }
+
     switch (pathname) {
+        case '~gitbook/embed/assistant':
         case '~gitbook/icon':
             return { pathname };
+        case '~gitbook/mcp':
         case 'llms.txt':
         case 'sitemap.xml':
         case 'sitemap-pages.xml':
         case 'robots.txt':
+        case '~gitbook/embed/script.js':
+        case '~gitbook/embed/demo':
             // LLMs.txt, sitemap, sitemap-pages and robots.txt are always static
             // as they only depend on the site structure / pages.
             return { pathname, routeType: 'static' };

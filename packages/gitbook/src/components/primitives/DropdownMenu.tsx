@@ -1,6 +1,6 @@
 'use client';
 
-import { Icon } from '@gitbook/icons';
+import { Icon, type IconName } from '@gitbook/icons';
 import type { DetailedHTMLProps, HTMLAttributes } from 'react';
 import { createContext, useCallback, useContext, useState } from 'react';
 
@@ -86,7 +86,7 @@ export function DropdownMenu(props: {
                     >
                         <div
                             className={tcls(
-                                'flex max-h-96 min-w-40 max-w-[40vw] flex-col gap-1 overflow-auto circular-corners:rounded-xl rounded-md straight-corners:rounded-none border border-tint bg-tint-base p-2 shadow-lg sm:min-w-52 sm:max-w-80',
+                                'flex max-h-[30rem] min-w-40 max-w-[40vw] flex-col gap-1 overflow-auto circular-corners:rounded-xl rounded-md straight-corners:rounded-none border border-tint bg-tint-base p-2 shadow-lg sm:min-w-52 sm:max-w-80',
                                 className
                             )}
                         >
@@ -110,7 +110,6 @@ export function DropdownChevron() {
                 'shrink-0',
                 'opacity-6',
                 'size-3',
-                'ms-1',
                 'transition-all',
                 'group-hover/dropdown:opacity-11',
                 'group-data-[state=open]/dropdown:opacity-11',
@@ -147,10 +146,20 @@ export function DropdownMenuItem(
         active?: boolean;
         className?: ClassValue;
         children: React.ReactNode;
+        leadingIcon?: IconName | React.ReactNode;
     } & LinkInsightsProps &
         RadixDropdownMenu.DropdownMenuItemProps
 ) {
-    const { children, active = false, href, className, insights, target, ...rest } = props;
+    const {
+        children,
+        active = false,
+        href,
+        className,
+        insights,
+        target,
+        leadingIcon,
+        ...rest
+    } = props;
 
     const itemClassName = tcls(
         'rounded-xs straight-corners:rounded-xs circular-corners:rounded-lg px-3 py-1 text-sm flex gap-2 items-center',
@@ -162,10 +171,22 @@ export function DropdownMenuItem(
         className
     );
 
+    const icon = leadingIcon ? (
+        typeof leadingIcon === 'string' ? (
+            <Icon
+                icon={leadingIcon as IconName}
+                className={tcls('size-4 shrink-0', active ? 'text-primary' : 'text-tint-subtle')}
+            />
+        ) : (
+            leadingIcon
+        )
+    ) : null;
+
     if (href) {
         return (
             <RadixDropdownMenu.Item {...rest} asChild>
                 <Link href={href} insights={insights} className={itemClassName} target={target}>
+                    {icon}
                     {children}
                 </Link>
             </RadixDropdownMenu.Item>
@@ -174,6 +195,7 @@ export function DropdownMenuItem(
 
     return (
         <RadixDropdownMenu.Item {...rest} className={tcls('px-3 py-1', itemClassName, className)}>
+            {icon}
             {children}
         </RadixDropdownMenu.Item>
     );

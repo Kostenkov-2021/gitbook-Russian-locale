@@ -4,7 +4,6 @@ import { useEffect, useRef, useState } from 'react';
 
 import { tString, useLanguage } from '@/intl/client';
 import { tcls } from '@/lib/tailwind';
-import { CustomizationAIMode } from '@gitbook/api';
 import { Icon } from '@gitbook/icons';
 import { Button, variantClasses } from '../primitives';
 import { useClassnames } from '../primitives/StyleProvider';
@@ -14,7 +13,7 @@ interface SearchInputProps {
     onKeyDown: (event: React.KeyboardEvent<HTMLInputElement>) => void;
     onFocus: () => void;
     value: string;
-    aiMode: CustomizationAIMode;
+    withAI: boolean;
     isOpen: boolean;
     className?: string;
 }
@@ -27,7 +26,7 @@ const sizeClasses = ['text-sm', 'px-3.5', 'py-1.5', 'md:circular-corners:px-4'];
  */
 export const SearchInput = React.forwardRef<HTMLDivElement, SearchInputProps>(
     function SearchInput(props, ref) {
-        const { onChange, onKeyDown, onFocus, value, aiMode, isOpen, className } = props;
+        const { onChange, onKeyDown, onFocus, value, withAI, isOpen, className } = props;
         const inputRef = useRef<HTMLInputElement>(null);
 
         const language = useLanguage();
@@ -47,7 +46,7 @@ export const SearchInput = React.forwardRef<HTMLDivElement, SearchInputProps>(
         }, [isOpen, value]);
 
         return (
-            <div className="relative flex size-9 grow">
+            <div className={tcls('relative flex size-9 grow', className)}>
                 {/* biome-ignore lint/a11y/useKeyWithClickEvents: this div needs an onClick to show the input on mobile, where it's normally hidden.
                 Normally you'd also need to add a keyboard trigger to do the same without a pointer, but in this case the input already be focused on its own. */}
                 <div
@@ -63,8 +62,7 @@ export const SearchInput = React.forwardRef<HTMLDivElement, SearchInputProps>(
                         'theme-bold:border-header-link/3 has-[input:focus-visible]:theme-bold:border-header-link/5 has-[input:focus-visible]:theme-bold:bg-header-link/3 has-[input:focus-visible]:theme-bold:ring-header-link/5',
                         'theme-bold:before:absolute theme-bold:before:inset-0 theme-bold:before:bg-header-background/7 theme-bold:before:backdrop-blur-xl ', // Special overlay to make the transparent colors of theme-bold visible.
                         'relative z-30 shrink grow justify-start max-md:absolute max-md:right-0',
-                        isOpen ? 'max-md:w-56' : 'max-md:w-[38px]',
-                        className
+                        isOpen ? 'max-md:w-56' : 'max-md:w-[38px]'
                     )}
                 >
                     {value && isOpen ? (
@@ -94,7 +92,7 @@ export const SearchInput = React.forwardRef<HTMLDivElement, SearchInputProps>(
                         onChange={(event) => onChange(event.target.value)}
                         value={value}
                         // We only show "search or ask" if the search input actually handles both search and ask.
-                        placeholder={`${tString(language, aiMode === CustomizationAIMode.Search ? 'search_or_ask' : 'search')}…`}
+                        placeholder={`${tString(language, withAI ? 'search_or_ask' : 'search')}…`}
                         maxLength={512}
                         size={10}
                         data-testid="search-input"

@@ -57,7 +57,7 @@ export async function HeaderLink(props: {
         );
     }
 
-    if (!target || !link.to) {
+    if (!link.to) {
         return null;
     }
 
@@ -68,7 +68,7 @@ export async function HeaderLink(props: {
             headerPreset={headerPreset}
             title={link.title}
             isDropdown={false}
-            href={target.href}
+            href={target?.href}
         />
     );
 }
@@ -78,7 +78,7 @@ export type HeaderLinkNavItemProps = {
     linkStyle: NonNullable<CustomizationHeaderItem['style']>;
     headerPreset: CustomizationHeaderPreset;
     title: string;
-    href: string;
+    href?: string;
     isDropdown: boolean;
 } & DropdownButtonProps<HTMLElement>;
 
@@ -138,7 +138,7 @@ function HeaderItemButton(
 
 function getHeaderLinkClassName(_props: { headerPreset: CustomizationHeaderPreset }) {
     return tcls(
-        'flex items-center',
+        'flex items-center gap-1',
         'shrink',
         'contrast-more:underline',
         'truncate',
@@ -165,7 +165,7 @@ function HeaderItemLink(props: Omit<HeaderLinkNavItemProps, 'linkStyle'>) {
     const { linkTarget, headerPreset, title, isDropdown, href, ...rest } = props;
     return (
         <Link
-            href={href}
+            href={href ?? '#'}
             className={getHeaderLinkClassName({ headerPreset })}
             insights={{
                 type: 'link_click',

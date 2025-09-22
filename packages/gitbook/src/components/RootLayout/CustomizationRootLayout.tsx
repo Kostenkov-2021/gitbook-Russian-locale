@@ -27,11 +27,13 @@ import { getSpaceLanguage } from '@/intl/server';
 import { getAssetURL } from '@/lib/assets';
 import { tcls } from '@/lib/tailwind';
 
-import { ClientContexts } from './ClientContexts';
+import { RootLayoutClientContexts } from './RootLayoutClientContexts';
 
 import '@gitbook/icons/style.css';
 import './globals.css';
+import type { GitBookAnyContext } from '@/lib/context';
 import { GITBOOK_FONTS_URL, GITBOOK_ICONS_TOKEN, GITBOOK_ICONS_URL } from '@/lib/env';
+import { defaultCustomization } from '@/lib/utils';
 import { AnnouncementDismissedScript } from '../Announcement';
 
 function preloadFont(fontData: FontData) {
@@ -56,12 +58,14 @@ function preloadFont(fontData: FontData) {
  */
 export async function CustomizationRootLayout(props: {
     forcedTheme?: CustomizationThemeMode | null;
-    customization: SiteCustomizationSettings;
+    context: GitBookAnyContext;
     children: React.ReactNode;
 }) {
-    const { customization, forcedTheme, children } = props;
+    const { context, forcedTheme, children } = props;
+    const customization =
+        'customization' in context ? context.customization : defaultCustomization();
 
-    const language = getSpaceLanguage(customization);
+    const language = getSpaceLanguage(context);
     const tintColor = getTintColor(customization);
     const mixColor = getTintMixColor(customization.styling.primaryColor, tintColor);
     const sidebarStyles = getSidebarStyles(customization);
@@ -94,7 +98,9 @@ export async function CustomizationRootLayout(props: {
                 'depth' in customization.styling && `depth-${customization.styling.depth}`,
                 fontNotoColorEmoji.variable,
                 monospaceFontData.type === 'default' ? monospaceFontData.variable : null,
-                fontData.type === 'default' ? fontData.variable : null,
+                fontData.type === 'default'
+                    ? [fontData.variable, `font-${customization.styling.font}`]
+                    : null,
 
                 // Set the dark/light class statically to avoid flashing and make it work when JS is disabled
                 (forcedTheme ?? customization.themes.default) === CustomizationThemeMode.Dark
@@ -138,7 +144,12 @@ export async function CustomizationRootLayout(props: {
                                     customization.styling.primaryColor.light
                             )
                         };
-                        --header-link: ${hexToRgb(customization.header.linkColor?.light ?? colorContrast(tintColor?.light ?? customization.styling.primaryColor.light))};
+                        --header-link: ${hexToRgb(
+                            customization.header.linkColor?.light ??
+                                colorContrast(
+                                    tintColor?.light ?? customization.styling.primaryColor.light
+                                )
+                        )};
 
                         ${generateColorVariable('info', infoColor.light)}
                         ${generateColorVariable('warning', warningColor.light)}
@@ -152,7 +163,12 @@ export async function CustomizationRootLayout(props: {
                         ${generateColorVariable('neutral', DEFAULT_TINT_COLOR, { darkMode: true })}
 
                         --header-background: ${hexToRgb(customization.header.backgroundColor?.dark ?? tintColor?.dark ?? customization.styling.primaryColor.dark)};
-                        --header-link: ${hexToRgb(customization.header.linkColor?.dark ?? colorContrast(tintColor?.dark ?? customization.styling.primaryColor.dark))};
+                        --header-link: ${hexToRgb(
+                            customization.header.linkColor?.dark ??
+                                colorContrast(
+                                    tintColor?.dark ?? customization.styling.primaryColor.dark
+                                )
+                        )};
 
                         ${generateColorVariable('info', infoColor.dark, { darkMode: true })}
                         ${generateColorVariable('warning', warningColor.dark, { darkMode: true })}
@@ -161,16 +177,7 @@ export async function CustomizationRootLayout(props: {
                     }
                 `}</style>
             </head>
-            <body
-                className={tcls(
-                    '[html.sidebar-filled.theme-bold.tint_&]:bg-tint-subtle',
-                    'bg-tint-base',
-                    'theme-muted:bg-tint-subtle',
-
-                    'theme-gradient:bg-gradient-primary',
-                    'theme-gradient-tint:bg-gradient-tint'
-                )}
-            >
+            <body className="site-background">
                 <IconsProvider
                     assetsURL={GITBOOK_ICONS_URL}
                     assetsURLToken={GITBOOK_ICONS_TOKEN}
@@ -185,7 +192,9 @@ export async function CustomizationRootLayout(props: {
                             : null) || IconStyle.Regular
                     }
                 >
-                    <ClientContexts language={language}>{children}</ClientContexts>
+                    <RootLayoutClientContexts language={language}>
+                        {children}
+                    </RootLayoutClientContexts>
                 </IconsProvider>
             </body>
         </html>

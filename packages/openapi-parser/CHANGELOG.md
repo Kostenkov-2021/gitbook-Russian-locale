@@ -1,5 +1,19 @@
 # @gitbook/openapi-parser
 
+## 3.0.2
+
+### Patch Changes
+
+- 12c9d76: Adapt OpenAPI blocks to eval adaptive exprs & prefill TryIt config
+- 7fefe49: Catch OpenAPI validation errors
+- 360aa1c: Upgrade Scalar dependencies
+
+## 3.0.1
+
+### Patch Changes
+
+- 42c17f5: Improve OpenAPI parsing errors
+
 ## 3.0.0
 
 ### Major Changes

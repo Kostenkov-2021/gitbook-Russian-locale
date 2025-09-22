@@ -72,7 +72,7 @@ function DescriptionForPageContentToolCall(props: {
 }) {
     const { toolCall, context } = props;
 
-    const language = getSpaceLanguage(context.customization);
+    const language = getSpaceLanguage(context);
 
     return (
         <p>
@@ -102,7 +102,7 @@ function DescriptionForMCPToolCall(props: {
 }) {
     const { toolCall, context } = props;
 
-    const language = getSpaceLanguage(context.customization);
+    const language = getSpaceLanguage(context);
 
     return (
         <p>
@@ -130,7 +130,7 @@ async function DescriptionForSearchToolCall(props: {
 }) {
     const { toolCall, context } = props;
 
-    const language = getSpaceLanguage(context.customization);
+    const language = getSpaceLanguage(context);
 
     // Resolve all hrefs for search results in parallel
     const searchResultsWithHrefs = await Promise.all(
@@ -167,7 +167,7 @@ async function DescriptionForSearchToolCall(props: {
                     hasResults ? '-my-2 cursor-pointer py-2 hover:bg-primary-hover' : ''
                 )}
             >
-                <div className="flex flex-col leading-snug">
+                <div className="flex min-w-0 flex-col break-words leading-snug">
                     <p>{t(language, 'searched_for', <strong>{toolCall.query}</strong>)}</p>
                     <p className="mt-0.5 text-tint-subtle text-xs">
                         {hasResults
@@ -187,7 +187,7 @@ async function DescriptionForSearchToolCall(props: {
                 ) : null}
             </summary>
             {hasResults ? (
-                <div className="mt-1 max-h-0 overflow-y-auto circular-corners:rounded-2xl rounded-corners:rounded-lg border border-tint-subtle p-2 opacity-0 transition-all transition-discrete duration-500 group-open:max-h-96 group-open:opacity-11">
+                <div className="hide-scrollbar mt-1 max-h-0 overflow-y-auto circular-corners:rounded-2xl rounded-corners:rounded-lg border border-tint-subtle p-2 opacity-0 transition-all transition-discrete duration-500 group-open:max-h-96 group-open:opacity-11">
                     <ol className="space-y-1">
                         {searchResultsWithHrefs.map((result, index) => (
                             <li
@@ -241,7 +241,7 @@ function DescriptionForGetPagesToolCall(props: {
 }) {
     const { toolCall, context } = props;
 
-    const language = getSpaceLanguage(context.customization);
+    const language = getSpaceLanguage(context);
 
     return (
         <p>

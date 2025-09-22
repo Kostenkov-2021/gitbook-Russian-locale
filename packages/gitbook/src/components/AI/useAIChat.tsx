@@ -2,6 +2,8 @@
 
 import * as zustand from 'zustand';
 
+import { useLanguage } from '@/intl/client';
+import { tString } from '@/intl/translate';
 import {
     AIMessageRole,
     type AIStreamResponseToolCallPending,
@@ -12,7 +14,7 @@ import * as React from 'react';
 import { useTrackEvent } from '../Insights';
 import { integrationsAssistantTools } from '../Integrations';
 import { useSearch } from '../Search';
-import { streamAIChatResponse } from './server-actions';
+import { type RenderAIMessageOptions, streamAIChatResponse } from './server-actions';
 import { useAIMessageContextRef } from './useAIMessageContext';
 
 export type AIChatMessage = {
@@ -96,6 +98,8 @@ export type AIChatController = {
     clear: () => void;
 };
 
+const AIChatControllerContext = React.createContext<AIChatController | null>(null);
+
 // Global state store for AI chat
 const globalState = zustand.create<AIChatState>(() => {
     return {
@@ -120,13 +124,18 @@ export function useAIChatState(): AIChatState {
 }
 
 /**
- * Get the controller to interact with the AI chat.
- * Integrates with search state to synchronize ?ask= parameter.
+ * Provide the controller to interact with the AI chat.
  */
-export function useAIChatController(): AIChatController {
+export function AIChatProvider(props: {
+    renderMessageOptions?: RenderAIMessageOptions;
+    children: React.ReactNode;
+}) {
+    const { renderMessageOptions, children } = props;
+
     const messageContextRef = useAIMessageContextRef();
     const trackEvent = useTrackEvent();
-    const [searchState, setSearchState] = useSearch(true);
+    const [, setSearchState] = useSearch();
+    const language = useLanguage();
 
     // Open AI chat and sync with search state
     const onOpen = React.useCallback(() => {
@@ -137,7 +146,7 @@ export function useAIChatController(): AIChatController {
         setSearchState((prev) => ({
             ask: prev?.ask ?? initialQuery ?? '',
             query: prev?.query ?? null,
-            global: prev?.global ?? false,
+            scope: prev?.scope ?? 'default',
             open: false, // Close search popover when opening chat
         }));
     }, [setSearchState]);
@@ -150,7 +159,7 @@ export function useAIChatController(): AIChatController {
         setSearchState((prev) => ({
             ask: null,
             query: prev?.query ?? null,
-            global: prev?.global ?? false,
+            scope: prev?.scope ?? 'default',
             open: false,
         }));
     }, [setSearchState]);
@@ -229,6 +238,11 @@ export function useAIChatController(): AIChatController {
                         description: tool.description,
                         inputSchema: tool.inputSchema,
                     })),
+                    options: {
+                        withLinkPreviews: renderMessageOptions?.withLinkPreviews ?? true,
+                        withToolCalls: renderMessageOptions?.withToolCalls ?? true,
+                        asEmbeddable: renderMessageOptions?.asEmbeddable ?? false,
+                    },
                 });
 
                 // Process streaming response
@@ -289,7 +303,11 @@ export function useAIChatController(): AIChatController {
                                                 },
                                                 summary: {
                                                     icon: 'forward',
-                                                    text: `Skipped confirmation of "${confirmation.label}"`,
+                                                    text: tString(
+                                                        language,
+                                                        'tool_call_skipped',
+                                                        confirmation.label
+                                                    ),
                                                 },
                                             },
                                             confirm: async () => {
@@ -328,7 +346,8 @@ export function useAIChatController(): AIChatController {
                     loading: false,
                     error: false,
                 }));
-            } catch {
+            } catch (error) {
+                console.error('Error streaming AI response', error);
                 globalState.setState((state) => ({
                     ...state,
                     loading: false,
@@ -336,7 +355,13 @@ export function useAIChatController(): AIChatController {
                 }));
             }
         },
-        [messageContextRef.current]
+        [
+            messageContextRef.current,
+            renderMessageOptions?.withLinkPreviews,
+            renderMessageOptions?.withToolCalls,
+            renderMessageOptions?.asEmbeddable,
+            language,
+        ]
     );
 
     // Post a message to the AI chat
@@ -349,7 +374,7 @@ export function useAIChatController(): AIChatController {
                 setSearchState((prev) => ({
                     ask: input.message,
                     query: prev?.query ?? null,
-                    global: prev?.global ?? false,
+                    scope: prev?.scope ?? 'default',
                     open: false,
                 }));
             }
@@ -377,6 +402,7 @@ export function useAIChatController(): AIChatController {
                     followUpSuggestions: [],
                     loading: true,
                     error: false,
+                    initialQuery: state.initialQuery ?? input.message,
                 };
             });
 
@@ -409,51 +435,12 @@ export function useAIChatController(): AIChatController {
         setSearchState((prev) => ({
             ask: '',
             query: prev?.query ?? null,
-            global: prev?.global ?? false,
+            scope: prev?.scope ?? 'default',
             open: false,
         }));
     }, [setSearchState]);
 
-    // Auto-trigger AI chat when ?ask= parameter appears in URL (only once)
-    React.useEffect(() => {
-        const hasNoAsk = searchState?.ask === undefined || searchState?.ask === null;
-        const hasQuery = searchState?.query !== null;
-
-        // Don't trigger if we have a regular search query active
-        if (hasNoAsk) return;
-        if (hasQuery && searchState.open === false) return;
-
-        // Open the chat when ask parameter appears
-        onOpen();
-
-        // Auto-post the message if ask has content
-        if (searchState?.ask?.trim()) {
-            const trimmedAsk = searchState.ask.trim();
-            const { loading, initialQuery } = globalState.getState();
-
-            // Don't trigger if we're already posting a message
-            if (loading) return;
-
-            // Only initialize once per URL ask value
-            if (initialQuery === trimmedAsk) return;
-
-            // Wait for messageContextRef to be defined before proceeding
-            if (!messageContextRef.current?.location) return;
-
-            // Mark this ask value as processed
-            globalState.setState((state) => ({ ...state, initialQuery: trimmedAsk }));
-            onPostMessage({ message: trimmedAsk });
-        }
-    }, [
-        searchState?.ask,
-        searchState?.query,
-        searchState?.open,
-        messageContextRef,
-        onOpen,
-        onPostMessage,
-    ]);
-
-    return React.useMemo(() => {
+    const controller = React.useMemo(() => {
         return {
             open: onOpen,
             close: onClose,
@@ -461,4 +448,22 @@ export function useAIChatController(): AIChatController {
             postMessage: onPostMessage,
         };
     }, [onOpen, onClose, onClear, onPostMessage]);
+
+    return (
+        <AIChatControllerContext.Provider value={controller}>
+            {children}
+        </AIChatControllerContext.Provider>
+    );
+}
+
+/**
+ * Get the controller to interact with the AI chat.
+ * Integrates with search state to synchronize ?ask= parameter.
+ */
+export function useAIChatController(): AIChatController {
+    const controller = React.useContext(AIChatControllerContext);
+    if (!controller) {
+        throw new Error('useAIChatController must be used within an AIChatProvider');
+    }
+    return controller;
 }

@@ -8,7 +8,7 @@ import { useDebounceCallback, useEventCallback } from 'usehooks-ts';
 import { getAllBrowserCookiesMap } from '@/lib/browser';
 import { type CurrentContentContext, useCurrentContent } from '../hooks';
 import { getSession } from './sessions';
-import { getVisitorId } from './visitorId';
+import { type SessionResponse, useVisitorSession } from './visitorId';
 
 export type InsightsEventName = api.SiteInsightsEvent['type'];
 
@@ -16,6 +16,7 @@ export type InsightsEventName = api.SiteInsightsEvent['type'];
  * Context for an event on a page.
  */
 export interface InsightsEventPageContext {
+    displayContext: api.SiteInsightsDisplayContext;
     pageId: string | null;
 }
 
@@ -46,20 +47,16 @@ type TrackEventCallback = <EventName extends InsightsEventName>(
     options?: InsightsEventOptions
 ) => void;
 
-const InsightsContext = React.createContext<TrackEventCallback>(() => {});
+const InsightsContext = React.createContext<TrackEventCallback>(() => {
+    console.error('useTrackEvent must be used within an InsightsProvider');
+});
 
 interface InsightsProviderProps {
     /** If true, the events will be sent to the server. */
     enabled: boolean;
 
-    /** If true, the visitor cookie tracking will be used */
-    visitorCookieTrackingEnabled: boolean;
-
-    /** The URL of the app. */
-    appURL: string;
-
-    /** The host of the API. */
-    apiHost: string;
+    /** The url of the endpoint to send events to */
+    eventUrl: string;
 
     /** The children of the provider. */
     children: React.ReactNode;
@@ -69,10 +66,10 @@ interface InsightsProviderProps {
  * Wrap the content of the app with the InsightsProvider to track events.
  */
 export function InsightsProvider(props: InsightsProviderProps) {
-    const { enabled, appURL, apiHost, children, visitorCookieTrackingEnabled } = props;
+    const { enabled, children, eventUrl } = props;
 
+    const visitorSession = useVisitorSession();
     const currentContent = useCurrentContent();
-    const visitorIdRef = React.useRef<string | null>(null);
     const eventsRef = React.useRef<{
         [pathname: string]:
             | {
@@ -89,9 +86,8 @@ export function InsightsProvider(props: InsightsProviderProps) {
      */
     const flushEventsSync = useEventCallback(() => {
         const session = getSession();
-        const visitorId = visitorIdRef.current;
-        if (!visitorId) {
-            throw new Error('Visitor ID should be set before flushing events');
+        if (!visitorSession) {
+            return;
         }
 
         const allEvents: api.SiteInsightsEvent[] = [];
@@ -111,7 +107,7 @@ export function InsightsProvider(props: InsightsProviderProps) {
                     events: eventsForPathname.events,
                     context: currentContent,
                     pageContext: eventsForPathname.pageContext,
-                    visitorId,
+                    visitorSession,
                     sessionId: session.id,
                 })
             );
@@ -123,26 +119,24 @@ export function InsightsProvider(props: InsightsProviderProps) {
             };
         }
 
-        if (allEvents.length > 0) {
-            if (enabled) {
-                sendEvents({
-                    apiHost,
-                    organizationId: currentContent.organizationId,
-                    siteId: currentContent.siteId,
-                    events: allEvents,
-                });
-            } else {
-            }
+        if (allEvents.length > 0 && enabled) {
+            sendEvents({
+                eventUrl,
+                events: allEvents,
+            });
         }
     });
 
-    const flushBatchedEvents = useDebounceCallback(async () => {
-        const visitorId =
-            visitorIdRef.current ?? (await getVisitorId(appURL, visitorCookieTrackingEnabled));
-        visitorIdRef.current = visitorId;
-
+    const flushBatchedEvents = useDebounceCallback(() => {
         flushEventsSync();
     }, 1500);
+
+    // Flush pending events once the visitor session has been fetched
+    React.useEffect(() => {
+        if (visitorSession) {
+            flushEventsSync();
+        }
+    }, [visitorSession, flushEventsSync]);
 
     const trackEvent: TrackEventCallback = useEventCallback(
         (
@@ -168,7 +162,7 @@ export function InsightsProvider(props: InsightsProviderProps) {
             if (eventsRef.current[pathname].pageContext !== undefined) {
                 // If the pageId is set, we know that the page_view event has been tracked
                 // and we can flush the events
-                if (options?.immediate && visitorIdRef.current) {
+                if (options?.immediate) {
                     flushBatchedEvents.cancel();
                     flushEventsSync();
                 } else {
@@ -179,18 +173,14 @@ export function InsightsProvider(props: InsightsProviderProps) {
     );
 
     /**
-     * Get the visitor ID and store it in a ref.
+     * When the page is unloaded, flush all events.
      */
     React.useEffect(() => {
-        getVisitorId(appURL, visitorCookieTrackingEnabled).then((visitorId) => {
-            visitorIdRef.current = visitorId;
-            // When the page is unloaded, flush all events, but only if the visitor ID is set
-            window.addEventListener('beforeunload', flushEventsSync);
-        });
+        window.addEventListener('beforeunload', flushEventsSync);
         return () => {
             window.removeEventListener('beforeunload', flushEventsSync);
         };
-    }, [flushEventsSync, appURL, visitorCookieTrackingEnabled]);
+    }, [flushEventsSync]);
 
     return (
         <InsightsContext.Provider value={trackEvent}>
@@ -216,16 +206,12 @@ export function useTrackEvent(): TrackEventCallback {
  * Post the events to the server.
  */
 function sendEvents(args: {
-    apiHost: string;
-    organizationId: string;
-    siteId: string;
+    eventUrl: string;
     events: api.SiteInsightsEvent[];
 }) {
-    const { apiHost, organizationId, siteId, events } = args;
-    const url = new URL(apiHost);
-    url.pathname = `/v1/orgs/${organizationId}/sites/${siteId}/insights/events`;
+    const { eventUrl, events } = args;
 
-    fetch(url.toString(), {
+    fetch(eventUrl, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
@@ -248,12 +234,12 @@ function transformEvents(input: {
     events: TrackEventInput<InsightsEventName>[];
     context: CurrentContentContext;
     pageContext: InsightsEventPageContext;
-    visitorId: string;
+    visitorSession: SessionResponse;
     sessionId: string;
 }): api.SiteInsightsEvent[] {
     const session: api.SiteInsightsEventSession = {
         sessionId: input.sessionId,
-        visitorId: input.visitorId,
+        visitorId: input.visitorSession.deviceId,
         userAgent: window.navigator.userAgent,
         language: window.navigator.language,
         cookies: getAllBrowserCookiesMap(),
@@ -269,6 +255,7 @@ function transformEvents(input: {
         siteShareKey: input.context.siteShareKey ?? null,
         revision: input.context.revisionId,
         page: input.pageContext.pageId,
+        displayContext: input.pageContext.displayContext,
     };
 
     return input.events.map((partialEvent) => {

@@ -1,9 +1,11 @@
 'use client';
 
-import { CustomizationAIMode } from '@gitbook/api';
+import { CustomizationSearchStyle, type SiteSection } from '@gitbook/api';
 import { useRouter } from 'next/navigation';
 import React, { useRef } from 'react';
 import { useHotkeys } from 'react-hotkeys-hook';
+import { useAI } from '../AI';
+import { AIChatButton } from '../AIChat';
 import { useTrackEvent } from '../Insights';
 import { useIsMobile } from '../hooks/useIsMobile';
 import { Popover } from '../primitives';
@@ -16,21 +18,52 @@ import { SearchScopeToggle } from './SearchScopeToggle';
 import { useSearch } from './useSearch';
 
 interface SearchContainerProps {
+    /** The current site space id. */
     siteSpaceId: string;
+
+    /** The title of the current space. */
     spaceTitle: string;
-    isMultiVariants: boolean;
-    aiMode: CustomizationAIMode;
+
+    /** The ids of all spaces in the current section. */
+    siteSpaceIds: string[];
+
+    /** Whether there are sections on the site. */
+    withSections: boolean;
+
+    /** The current section, displayed in search scope toggle. */
+    section?: Pick<SiteSection, 'title' | 'icon'>;
+
+    /** Whether the current section has variants. */
+    withVariants: boolean;
+
+    /** Whether any section on the site has variants. */
+    withSiteVariants: boolean;
+
+    style: CustomizationSearchStyle;
     className?: string;
+    viewport?: 'desktop' | 'mobile';
 }
 
 /**
  * Client component to render the search input and results.
  */
 export function SearchContainer(props: SearchContainerProps) {
-    const { siteSpaceId, spaceTitle, isMultiVariants, aiMode, className } = props;
+    const {
+        siteSpaceId,
+        spaceTitle,
+        section,
+        withVariants,
+        withSiteVariants,
+        withSections,
+        style,
+        className,
+        viewport,
+        siteSpaceIds,
+    } = props;
 
-    const withAIChat = aiMode === CustomizationAIMode.Assistant;
-    const [state, setSearchState] = useSearch(withAIChat);
+    const { assistants } = useAI();
+
+    const [state, setSearchState] = useSearch();
     const searchAsk = useSearchAskState();
     const router = useRouter();
     const trackEvent = useTrackEvent();
@@ -39,34 +72,39 @@ export function SearchContainer(props: SearchContainerProps) {
 
     const isMobile = useIsMobile();
 
-    // Derive open state from search state
-    const open = state?.open ?? false;
+    const withAI = assistants.length > 0;
+    const withSearchAI = assistants.filter((assistant) => assistant.mode === 'search').length > 0;
 
+    // Handle initial ask state on page load, once assistants are ready
+    const initialRef = React.useRef(state?.ask === undefined || state?.ask === null); // If ask is not set on page load, we will never trigger
     React.useEffect(() => {
-        if (state?.ask && aiMode === CustomizationAIMode.Assistant) {
-            // Close the pop-over when we switch to “ask” mode
-            setSearchState((prev) => (prev ? { ...prev, open: !state.ask } : prev));
-        } else if (state?.ask && aiMode === CustomizationAIMode.None) {
-            // Rewrite ask to query when the site doesn't support AI
-            setSearchState((prev) => (prev ? { ...prev, query: prev.ask, ask: null } : prev));
-        }
-    }, [state?.ask, setSearchState, aiMode]);
+        if (initialRef.current) return;
+        if (assistants.length === 0) return;
+        if (state?.ask === undefined || state?.ask === null) return;
+
+        initialRef.current = true;
+
+        // For simplicity we're only triggering the first assistant
+        assistants[0]?.open(state?.ask ?? undefined);
+    }, [state?.ask, assistants.length, assistants[0]?.open]);
 
     const onClose = React.useCallback(
         async (to?: string) => {
-            if (state) {
-                await setSearchState({
-                    ...state,
-                    open: false,
-                    query: state.query === '' ? null : state.query,
-                });
-            }
+            setSearchState((prev) =>
+                prev
+                    ? {
+                          ...prev,
+                          open: false,
+                          query: prev.query === '' ? null : prev.query,
+                      }
+                    : null
+            );
 
             if (to) {
                 router.push(to);
             }
         },
-        [state, setSearchState, router]
+        [setSearchState, router]
     );
 
     useHotkeys(
@@ -75,24 +113,39 @@ export function SearchContainer(props: SearchContainerProps) {
             e.preventDefault();
             onOpen();
         },
-        []
+        {
+            enableOnFormTags: true,
+        }
+    );
+
+    useHotkeys(
+        'mod+i',
+        (e) => {
+            e.preventDefault();
+            if (assistants) {
+                assistants[0]?.open();
+            }
+        },
+        {
+            enableOnFormTags: true,
+        }
     );
 
     const onOpen = React.useCallback(() => {
-        if (open) {
+        if (state?.open) {
             return;
         }
         setSearchState((prev) => ({
-            ask: aiMode === CustomizationAIMode.Assistant && prev ? prev.ask : null,
-            global: prev?.global ?? false,
-            query: (!withAIChat ? prev?.ask : null) ?? prev?.query ?? '',
+            ask: withAI ? (prev?.ask ?? null) : null,
+            scope: prev?.scope ?? 'default',
+            query: prev?.query ?? (withSearchAI || !withAI ? prev?.ask : null) ?? '',
             open: true,
         }));
 
         trackEvent({
             type: 'search_open',
         });
-    }, [open, setSearchState, trackEvent, withAIChat]);
+    }, [state?.open, setSearchState, trackEvent, withAI, withSearchAI]);
 
     React.useEffect(() => {
         const handleKeyDown = (event: KeyboardEvent) => {
@@ -122,9 +175,9 @@ export function SearchContainer(props: SearchContainerProps) {
 
     const onChange = (value: string) => {
         setSearchState((prev) => ({
-            ask: aiMode === CustomizationAIMode.Assistant && prev ? prev.ask : null, // When typing, we go back to the default search mode
+            ask: withAI && !withSearchAI ? (prev?.ask ?? null) : null, // When typing, we reset ask to get back to normal search (unless non-search assistants are defined)
             query: value,
-            global: prev?.global ?? false,
+            scope: prev?.scope ?? 'default',
             open: true,
         }));
     };
@@ -133,25 +186,33 @@ export function SearchContainer(props: SearchContainerProps) {
     const normalizedQuery = state?.query?.trim() ?? '';
     const normalizedAsk = state?.ask?.trim() ?? '';
 
-    const showAsk = aiMode === CustomizationAIMode.Search && normalizedAsk;
+    const showAsk = withSearchAI && normalizedAsk; // withSearchAI && normalizedAsk;
+
+    const visible = viewport === 'desktop' ? !isMobile : viewport === 'mobile' ? isMobile : true;
 
     return (
         <SearchAskProvider value={searchAsk}>
             <Popover
                 content={
                     // Only show content if there's a query or Ask is enabled
-                    (state?.query || aiMode !== CustomizationAIMode.None) && open ? (
+                    state?.query || withAI ? (
                         <React.Suspense fallback={null}>
-                            {isMultiVariants && !showAsk ? (
-                                <SearchScopeToggle spaceTitle={spaceTitle} />
+                            {(withVariants || withSections) && !showAsk ? (
+                                <SearchScopeToggle
+                                    section={section}
+                                    spaceTitle={spaceTitle}
+                                    withVariants={withVariants}
+                                    withSiteVariants={withSiteVariants}
+                                    withSections={withSections}
+                                />
                             ) : null}
                             {state !== null && !showAsk ? (
                                 <SearchResults
                                     ref={resultsRef}
                                     query={normalizedQuery}
-                                    global={state?.global ?? false}
-                                    aiMode={aiMode}
+                                    scope={state?.scope ?? 'default'}
                                     siteSpaceId={siteSpaceId}
+                                    siteSpaceIds={siteSpaceIds}
                                 />
                             ) : null}
                             {showAsk ? <SearchAskAnswer query={normalizedAsk} /> : null}
@@ -159,20 +220,22 @@ export function SearchContainer(props: SearchContainerProps) {
                     ) : null
                 }
                 rootProps={{
-                    open: open,
+                    open: visible && (state?.open ?? false),
+                    onOpenChange: (open) => {
+                        open ? onOpen() : onClose();
+                    },
                     modal: isMobile,
                 }}
                 contentProps={{
                     onOpenAutoFocus: (event) => event.preventDefault(),
                     align: 'start',
                     className:
-                        'bg-tint-base has-[.empty]:hidden scroll-py-2 w-128 p-2 max-h-[min(32rem,var(--radix-popover-content-available-height))] max-w-[min(var(--radix-popover-content-available-width),32rem)]',
+                        '@container overflow-y-scroll bg-tint-base has-[.empty]:hidden scroll-py-2 w-128 p-2 max-h-[min(32rem,var(--radix-popover-content-available-height))] max-w-[min(var(--radix-popover-content-available-width),32rem)]',
                     onInteractOutside: (event) => {
                         // Don't close if clicking on the search input itself
                         if (searchInputRef.current?.contains(event.target as Node)) {
                             return;
                         }
-                        onClose();
                     },
                     sideOffset: 8,
                     collisionPadding: {
@@ -189,15 +252,28 @@ export function SearchContainer(props: SearchContainerProps) {
             >
                 <SearchInput
                     ref={searchInputRef}
-                    value={(!withAIChat ? state?.ask : null) ?? state?.query ?? ''}
+                    value={state?.query ?? (withSearchAI || !withAI ? state?.ask : null) ?? ''}
                     onFocus={onOpen}
                     onChange={onChange}
                     onKeyDown={onKeyDown}
-                    aiMode={aiMode}
-                    isOpen={open}
+                    withAI={withSearchAI}
+                    isOpen={state?.open ?? false}
                     className={className}
                 />
             </Popover>
+            {assistants
+                .filter((assistant) => assistant.ui === true)
+                .map((assistant, index) => (
+                    <AIChatButton
+                        key={assistant.id}
+                        assistant={assistant}
+                        withShortcut={index === 0}
+                        showLabel={
+                            assistants.filter((assistant) => assistant.ui === true).length === 1 &&
+                            style === CustomizationSearchStyle.Prominent
+                        }
+                    />
+                ))}
         </SearchAskProvider>
     );
 }

@@ -1,10 +1,11 @@
-import { AIActionsDropdown } from '@/components/AIActions/AIActionsDropdown';
-import { isAIChatEnabled } from '@/components/utils/isAIChatEnabled';
 import type { GitBookSiteContext } from '@/lib/context';
 import type { AncestorRevisionPage } from '@/lib/pages';
 import { tcls } from '@/lib/tailwind';
-import type { RevisionPageDocument } from '@gitbook/api';
+import { type RevisionPageDocument, SiteVisibility } from '@gitbook/api';
 import { Icon } from '@gitbook/icons';
+import urlJoin from 'url-join';
+import { getPDFURLSearchParams } from '../PDF';
+import { PageActionsDropdown } from '../PageActions/PageActionsDropdown';
 import { PageIcon } from '../PageIcon';
 import { StyledLink } from '../primitives';
 
@@ -19,14 +20,6 @@ export async function PageHeader(props: {
     if (!page.layout.title && !page.layout.description) {
         return null;
     }
-
-    const withAIChat = isAIChatEnabled(context);
-
-    const pageActions = context.customization.pageActions ?? {
-        // TODO: After 25/07/2025, we can remove this default values as the cache will be updated
-        markdown: true,
-        externalAI: true,
-    };
 
     const hasAncestors = ancestors.length > 0;
 
@@ -43,23 +36,47 @@ export async function PageHeader(props: {
                 hasAncestors ? 'page-has-ancestors' : 'page-no-ancestors'
             )}
         >
-            {page.layout.tableOfContents &&
-            // Show page actions if *any* of the actions are enabled
-            (withAIChat || pageActions.markdown || pageActions.externalAI) ? (
-                <div
+            {page.layout.tableOfContents ? (
+                // Show page actions if *any* of the actions are enabled
+                <PageActionsDropdown
+                    siteTitle={context.site.title}
+                    markdownPageURL={`${context.linker.toAbsoluteURL(context.linker.toPathInSpace(page.path))}.md`}
+                    editOnGit={
+                        context.customization.git.showEditLink &&
+                        context.space.gitSync?.url &&
+                        page.git
+                            ? {
+                                  provider: context.space?.gitSync?.installationProvider,
+                                  url: urlJoin(context.space.gitSync.url, page.git.path),
+                              }
+                            : undefined
+                    }
+                    pdfURL={
+                        context.customization.pdf.enabled
+                            ? context.linker.toPathInSpace(
+                                  `~gitbook/pdf?${getPDFURLSearchParams({
+                                      page: page.id,
+                                      only: true,
+                                      limit: 100,
+                                  }).toString()}`
+                              )
+                            : undefined
+                    }
+                    mcpURL={
+                        context.site.visibility !== SiteVisibility.VisitorAuth
+                            ? context.linker.toAbsoluteURL(
+                                  context.linker.toPathInSpace('~gitbook/mcp')
+                              )
+                            : undefined
+                    }
+                    actions={context.customization.pageActions}
                     className={tcls(
                         'float-right ml-4 xl:max-2xl:page-api-block:mr-62',
                         hasAncestors ? '-my-1.5' : '-mt-3 xs:mt-2'
                     )}
-                >
-                    <AIActionsDropdown
-                        markdownPageUrl={`${context.linker.toAbsoluteURL(context.linker.toPathInSpace(page.path))}.md`}
-                        withAIChat={withAIChat}
-                        trademark={context.customization.trademark.enabled}
-                        actions={pageActions}
-                    />
-                </div>
+                />
             ) : null}
+
             {hasAncestors && (
                 <nav aria-label="Breadcrumb">
                     <ol className={tcls('flex', 'flex-wrap', 'items-center', 'gap-2', 'text-tint')}>

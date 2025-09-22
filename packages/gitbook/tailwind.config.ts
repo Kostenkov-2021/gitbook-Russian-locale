@@ -36,14 +36,13 @@ function generateVarShades(varName: string, filter: ColorCategory[] = []) {
  */
 function generateShades(color: string) {
     const rawShades = shadesOfColor(color);
-    const shadeMap = shades.reduce(
-        (acc, shade) => {
-            acc[shade] = `rgb(${hexToRgb(rawShades[`${shade}`])} / <alpha-value>)`;
-            return acc;
-        },
-        {} as Record<string, string>
-    );
+    const shadeMap = shades.reduce((acc: Record<string, string>, shade) => {
+        // @ts-expect-error
+        acc[shade] = `rgb(${hexToRgb(rawShades[`${shade}`])} / <alpha-value>)`;
+        return acc;
+    }, {});
 
+    // @ts-expect-error
     shadeMap.DEFAULT = shadeMap[500];
 
     return shadeMap;
@@ -81,6 +80,9 @@ const config: Config = {
                     'sans-serif',
                 ],
                 var: ['var(--font-family)'],
+            },
+            fontSize: {
+                xxs: ['0.625rem', { lineHeight: '0.75rem' }],
             },
             colors: {
                 // Dynamic colors matching the customization settings
@@ -319,13 +321,26 @@ const config: Config = {
                 'fadeIn-slow': 'fadeIn 500ms ease both',
                 fadeOut: 'fadeOut 200ms ease both',
                 'fadeOut-slow': 'fadeOut 500ms ease both',
+                appear: 'appear 200ms ease both allow-discrete',
 
                 enterFromLeft: 'enterFromLeft 250ms cubic-bezier(0.83, 0, 0.17, 1) both',
                 enterFromRight: 'enterFromRight 250ms cubic-bezier(0.83, 0, 0.17, 1) both',
                 exitToLeft: 'exitToLeft 250ms cubic-bezier(0.83, 0, 0.17, 1) both',
                 exitToRight: 'exitToRight 250ms cubic-bezier(0.83, 0, 0.17, 1) both',
+
+                heightIn: 'heightIn 200ms ease both',
             },
             keyframes: {
+                bounceSmall: {
+                    '0%, 100%': {
+                        transform: 'translateY(-15%)',
+                        animationTimingFunction: 'cubic-bezier(0.8, 0, 1, 1)',
+                    },
+                    '50%': {
+                        transform: 'none',
+                        animationTimingFunction: 'cubic-bezier(0, 0, 0.2, 1)',
+                    },
+                },
                 pulseAlt: {
                     '0%': {
                         transform: 'scale(0.01)',
@@ -347,6 +362,7 @@ const config: Config = {
                         opacity: '1',
                     },
                 },
+
                 present: {
                     from: {
                         opacity: '0',
@@ -478,6 +494,10 @@ const config: Config = {
                     from: { opacity: '1' },
                     to: { opacity: '0' },
                 },
+                heightIn: {
+                    from: { height: '0' },
+                    to: { height: 'max-content' },
+                },
             },
             boxShadow: {
                 thinbottom: '0px 1px 0px rgba(0, 0, 0, 0.05)',
@@ -527,7 +547,7 @@ const config: Config = {
             addVariant('site-header', 'body:has(#site-header:not(.mobile-only)) &');
             addVariant('site-header-sections', [
                 'body:has(#site-header:not(.mobile-only) #sections) &',
-                'body:has(.page-no-toc):has(#site-header:not(.mobile-only) #variants) &',
+                // 'body:has(.page-no-toc):has(#site-header:not(.mobile-only) #variants) &',
             ]);
             addVariant(
                 'announcement',

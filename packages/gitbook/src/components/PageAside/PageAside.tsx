@@ -4,18 +4,15 @@ import {
     type RevisionPageDocument,
     SiteAdsStatus,
     SiteInsightsAdPlacement,
-    type Space,
 } from '@gitbook/api';
 import { Icon } from '@gitbook/icons';
 import React from 'react';
-import urlJoin from 'url-join';
 
 import { getSpaceLanguage, t } from '@/intl/server';
 import { getDocumentSections } from '@/lib/document-sections';
 import { tcls } from '@/lib/tailwind';
 
 import { Ad } from '../Ads';
-import { getPDFURLSearchParams } from '../PDF';
 import { PageFeedbackForm } from '../PageFeedback';
 import { ThemeToggler } from '../ThemeToggler';
 import { ScrollSectionsList } from './ScrollSectionsList';
@@ -32,6 +29,7 @@ export function PageAside(props: {
     withPageFeedback: boolean;
 }) {
     const { page, document, withPageFeedback, context } = props;
+    const { customization, site } = context;
 
     return (
         <aside
@@ -39,6 +37,7 @@ export function PageAside(props: {
                 'group/aside',
                 'hidden',
                 'pt-8',
+                'pb-4',
 
                 'xl:flex',
                 'xl:max-3xl:chat-open:hidden',
@@ -76,8 +75,8 @@ export function PageAside(props: {
                 'lg:site-header-sections:max-h-[calc(100vh-6.75rem)]',
 
                 // Client-side dynamic positioning (CSS vars applied by script)
-                'lg:[html[style*="--toc-top-offset"]_&]:top-(--toc-top-offset)!',
-                'lg:[html[style*="--toc-height"]_&]:max-h-(--toc-height)!',
+                'lg:[html[style*="--outline-top-offset"]_&]:top-(--outline-top-offset)!',
+                'lg:[html[style*="--outline-height"]_&]:max-h-(--outline-height)!',
 
                 // When in api page mode, we display it as an overlay on non-large resolutions
                 'xl:max-2xl:page-api-block:z-10',
@@ -95,7 +94,8 @@ export function PageAside(props: {
                     'flex flex-col',
                     'overflow-hidden',
                     'w-full',
-                    'xl:max-2xl:page-api-block:rounded-md',
+                    'xl:max-2xl:rounded-corners:page-api-block:rounded-md',
+                    'xl:max-2xl:circular-corners:page-api-block:rounded-xl',
                     'xl:max-2xl:page-api-block:border',
                     'xl:max-2xl:page-api-block:border-tint',
                     'xl:max-2xl:page-api-block:bg-tint/9',
@@ -109,20 +109,18 @@ export function PageAside(props: {
             >
                 <PageAsideHeader context={context} />
                 {page.layout.outline ? (
-                    <div className="overflow-y-auto border-tint xl:max-2xl:page-api-block:border-t">
+                    <div className="flex shrink flex-col overflow-hidden">
                         {document ? (
                             <React.Suspense fallback={null}>
                                 <PageAsideSections document={document} context={context} />
                             </React.Suspense>
                         ) : null}
-                        <PageAsideActions
-                            page={page}
-                            withPageFeedback={withPageFeedback}
-                            context={context}
-                        />
+                        <PageAsideActions page={page} withPageFeedback={withPageFeedback} />
                     </div>
                 ) : null}
-                <PageAsideFooter context={context} />
+                {customization.themes.toggeable || site.ads ? (
+                    <PageAsideFooter context={context} />
+                ) : null}
             </div>
         </aside>
     );
@@ -130,7 +128,7 @@ export function PageAside(props: {
 
 function PageAsideHeader(props: { context: GitBookSiteContext }) {
     const { context } = props;
-    const language = getSpaceLanguage(context.customization);
+    const language = getSpaceLanguage(context);
 
     return (
         <div
@@ -161,43 +159,21 @@ async function PageAsideSections(props: { document: JSONDocument; context: GitBo
 
     const sections = await getDocumentSections(context, document);
 
-    return sections.length > 1 ? (
-        <div className="-mt-8 pt-8 pb-5 empty:hidden xl:max-2xl:page-api-block:mt-0 xl:max-2xl:page-api-block:p-2">
-            <ScrollSectionsList sections={sections} />
-        </div>
-    ) : null;
+    return sections.length > 1 ? <ScrollSectionsList sections={sections} /> : null;
 }
 
 function PageAsideActions(props: {
     withPageFeedback: boolean;
-    context: GitBookSiteContext;
     page: RevisionPageDocument;
 }) {
-    const { page, withPageFeedback, context } = props;
-    const { customization, space } = context;
-    const language = getSpaceLanguage(customization);
-
-    const pdfHref = context.linker.toPathInSpace(
-        `~gitbook/pdf?${getPDFURLSearchParams({
-            page: page.id,
-            only: true,
-            limit: 100,
-        }).toString()}`
-    );
+    const { page, withPageFeedback } = props;
 
     return (
         <div
             className={tcls(
-                'flex',
-                'flex-col',
-                'gap-3',
-                'sidebar-list-default:px-3',
-                'border-t',
-                'first:border-none',
-                'border-tint-subtle',
-                'py-5',
-                'first:pt-0',
-                'xl:max-2xl:page-api-block:px-5',
+                'flex flex-col gap-3',
+                'border-tint-subtle border-t first:border-none',
+                'sidebar-list-default:px-3 pt-5 first:pt-0 xl:max-2xl:page-api-block:p-5',
                 'empty:hidden'
             )}
         >
@@ -205,57 +181,6 @@ function PageAsideActions(props: {
                 <React.Suspense fallback={null}>
                     <PageFeedbackForm pageId={page.id} />
                 </React.Suspense>
-            ) : null}
-            {customization.git.showEditLink && space.gitSync?.url && page.git ? (
-                <div>
-                    <a
-                        href={urlJoin(space.gitSync.url, page.git.path)}
-                        className={tcls(
-                            'flex',
-                            'flex-row',
-                            'items-center',
-                            'text-sm',
-                            'hover:text-tint-strong',
-                            'links-accent:hover:underline',
-                            'links-accent:hover:underline-offset-4',
-                            'links-accent:hover:decoration-[3px]',
-                            'links-accent:hover:decoration-primary-subtle',
-                            'py-2'
-                        )}
-                    >
-                        <Icon
-                            icon={
-                                space.gitSync.installationProvider === 'gitlab'
-                                    ? 'gitlab'
-                                    : 'github'
-                            }
-                            className={tcls('size-4', 'mr-1.5')}
-                        />
-                        {t(language, 'edit_on_git', getGitSyncName(space))}
-                    </a>
-                </div>
-            ) : null}
-            {customization.pdf.enabled ? (
-                <div>
-                    <a
-                        href={pdfHref}
-                        className={tcls(
-                            'flex',
-                            'flex-row',
-                            'items-center',
-                            'text-sm',
-                            'hover:text-tint-strong',
-                            'links-accent:hover:underline',
-                            'links-accent:hover:underline-offset-4',
-                            'links-accent:hover:decoration-[3px]',
-                            'links-accent:hover:decoration-primary-subtle',
-                            'py-2'
-                        )}
-                    >
-                        <Icon icon="file-pdf" className={tcls('size-4', 'mr-1.5')} />
-                        {t(language, 'pdf_download')}
-                    </a>
-                </div>
             ) : null}
         </div>
     );
@@ -270,8 +195,8 @@ async function PageAsideFooter(props: { context: GitBookSiteContext }) {
             className={tcls(
                 'sticky bottom-0 z-10 mt-auto flex flex-col',
                 'bg-tint-base theme-gradient-tint:bg-gradient-tint theme-gradient:bg-gradient-primary theme-muted:bg-tint-subtle [html.sidebar-filled.theme-bold.tint_&]:bg-tint-subtle',
-                'xl:max-2xl:page-api-block:border-t xl:max-2xl:page-api-block:p-2',
-                'py-4'
+                'border-tint-subtle xl:max-2xl:page-api-block:border-t xl:max-2xl:page-api-block:p-2',
+                'pt-4'
             )}
         >
             {/* Mode Switcher */}
@@ -294,15 +219,4 @@ async function PageAsideFooter(props: { context: GitBookSiteContext }) {
             />
         </div>
     );
-}
-
-function getGitSyncName(space: Space): string {
-    if (space.gitSync?.installationProvider === 'github') {
-        return 'GitHub';
-    }
-    if (space.gitSync?.installationProvider === 'gitlab') {
-        return 'GitLab';
-    }
-
-    return 'Git';
 }

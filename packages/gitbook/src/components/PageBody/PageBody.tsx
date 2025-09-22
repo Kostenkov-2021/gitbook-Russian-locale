@@ -1,5 +1,5 @@
 import type { GitBookSiteContext } from '@/lib/context';
-import type { JSONDocument, RevisionPageDocument } from '@gitbook/api';
+import type { JSONDocument, RevisionPageDocument, SiteInsightsDisplayContext } from '@gitbook/api';
 import React from 'react';
 
 import { getSpaceLanguage } from '@/intl/server';
@@ -26,14 +26,15 @@ export function PageBody(props: {
     ancestors: AncestorRevisionPage[];
     document: JSONDocument | null;
     withPageFeedback: boolean;
+    insightsDisplayContext: SiteInsightsDisplayContext;
 }) {
-    const { page, context, ancestors, document, withPageFeedback } = props;
+    const { page, context, ancestors, document, withPageFeedback, insightsDisplayContext } = props;
     const { customization } = context;
 
     const contentFullWidth = document ? hasFullWidthBlock(document) : false;
 
     // Render link previews only if there are less than LINK_PREVIEW_MAX_COUNT links in the document.
-    const shouldRenderLinkPreviews = document
+    const withLinkPreviews = document
         ? !hasMoreThan(
               document,
               (inline) => inline.object === 'inline' && inline.type === 'link',
@@ -42,7 +43,7 @@ export function PageBody(props: {
         : false;
     const pageWidthWide = page.layout.width === 'wide';
     const siteWidthWide = pageWidthWide || contentFullWidth;
-    const language = getSpaceLanguage(customization);
+    const language = getSpaceLanguage(context);
     const updatedAt = page.updatedAt ?? page.createdAt;
 
     return (
@@ -80,8 +81,11 @@ export function PageBody(props: {
                             blockStyle="page-api-block:ml-0"
                             context={{
                                 mode: 'default',
-                                contentContext: context,
-                                shouldRenderLinkPreviews,
+                                contentContext: {
+                                    ...context,
+                                    page,
+                                },
+                                withLinkPreviews,
                             }}
                         />
                     </React.Suspense>
@@ -117,7 +121,7 @@ export function PageBody(props: {
                 }
             </main>
 
-            <TrackPageViewEvent />
+            <TrackPageViewEvent displayContext={insightsDisplayContext} />
         </CurrentPageProvider>
     );
 }

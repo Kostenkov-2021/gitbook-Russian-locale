@@ -57,7 +57,7 @@ export async function PDFPage(props: {
 
     const customization =
         'customization' in baseContext ? baseContext.customization : defaultCustomization();
-    const language = getSpaceLanguage(customization);
+    const language = getSpaceLanguage(baseContext);
 
     // Compute the pages to render
     const { pages, total } = selectPages(baseContext.revision.pages, pdfParams);
@@ -149,8 +149,7 @@ export async function PDFPage(props: {
                 trademark={
                     customization.trademark.enabled ? (
                         <TrademarkLink
-                            space={context.space}
-                            customization={customization}
+                            context={context}
                             placement={SiteInsightsTrademarkPlacement.Pdf}
                         />
                     ) : null
@@ -245,7 +244,7 @@ async function PDFPageDocument(props: {
                             page,
                         },
                         getId: (id) => getPagePDFContainerId(page, id),
-                        shouldRenderLinkPreviews: false, // We don't want to render link previews in the PDF.
+                        withLinkPreviews: false, // We don't want to render link previews in the PDF.
                     }}
                     // We consider all pages as offscreen in PDF mode
                     // to ensure we can efficiently render as many pages as possible
